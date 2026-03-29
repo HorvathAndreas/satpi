@@ -86,3 +86,27 @@ Connect with:
 
 ```bash
 ssh YOUR_USER@HOSTNAME.local
+
+## Quick start after cloning
+
+run /scripts/install_base.sh
+
+Run the commands below after cloning the repository:
+
+```bash
+cd ~/satpi
+
+cp config/config.example.ini config/config.ini
+nano config/config.ini
+
+rclone config
+
+printf "Subject: satpi test\n\nTest mail.\n" | /usr/bin/msmtp you@example.com
+
+python3 bin/test_config.py
+python3 bin/update_tle.py
+python3 bin/predict_passes.py
+python3 bin/schedule_passes.py
+python3 bin/generate_refresh_units.py
+
+systemctl list-timers --all | grep satpi
