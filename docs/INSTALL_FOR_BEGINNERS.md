@@ -84,7 +84,7 @@ Use PowerShell or PuTTY.
 
 Connect with:
 
-```bash
+bash
 ssh YOUR_USER@HOSTNAME.local
 
 ## Quick start after cloning
@@ -93,7 +93,7 @@ run /scripts/install_base.sh
 
 Run the commands below after cloning the repository:
 
-```bash
+bash
 cd ~/satpi
 
 cp config/config.example.ini config/config.ini
