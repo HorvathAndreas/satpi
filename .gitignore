@@ -1,6 +1,7 @@
 config/config.ini
 logs/
 output/
+tle/*.tle
 data/passes.json
 data/state.json
 systemd/generated/
