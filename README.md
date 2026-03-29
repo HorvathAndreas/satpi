@@ -202,7 +202,7 @@ satpi is designed as a modular and transparent workflow for autonomous satellite
 
 ## Author
 
-Andreas Horvath
+Andreas Horvath, info[at]andreas-horvath.ch WhatsApp +41 79 249 57 12
 
 ## Project
 
