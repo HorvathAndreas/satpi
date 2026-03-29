@@ -300,20 +300,12 @@ EOF
     info "Created /etc/wireguard/proton.conf.example"
 fi
 
-sudo tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNS=1.1.1.1 1.0.0.1 9.9.9.9
-FallbackDNS=8.8.8.8 8.8.4.4
-DNSStubListener=yes
-EOF
-
-sudo systemctl enable systemd-resolved
-sudo systemctl restart systemd-resolved
-
 sudo rm -f /etc/resolv.conf
-sudo ln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-
-ping -c 2 pypi.org
+sudo tee /etc/resolv.conf >/dev/null <<'EOF'
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+nameserver 9.9.9.9
+EOF
 
 press_enter
 
