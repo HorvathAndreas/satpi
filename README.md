@@ -180,13 +180,6 @@ The current implementation supports:
 - optional public/share link generation
 - mail notifications after successful decode and upload
 
-## Notes
-
-- `config.ini` is local and should not be committed
-- commit only `config.example.ini`
-- generated systemd units should not be committed
-- logs, output data and runtime files should be ignored in Git
-
 ## Git Recommendations
 
 Suggested `.gitignore` entries:
