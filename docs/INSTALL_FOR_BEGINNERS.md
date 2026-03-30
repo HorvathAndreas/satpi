@@ -87,9 +87,12 @@ ssh YOUR_USER@HOSTNAME.local
 
 ## Quick start after cloning
 
-git clone git clone https://github.com/HorvathAndreas/satpi.git
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/HorvathAndreas/satpi.git
 
-run /scripts/install_base.sh
+cd ~/satpi
+bash scripts/install_base.sh
 
 Run the commands below after cloning the repository:
 
