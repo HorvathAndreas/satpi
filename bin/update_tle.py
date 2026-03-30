@@ -4,8 +4,6 @@
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
 
-#!/usr/bin/env python3
-
 import os
 import subprocess
 import tempfile
@@ -32,6 +30,14 @@ def setup_logging(log_dir):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
+
+def check_url(url: str, timeout: int = 15) -> bool:
+    cmd = f"curl -I --max-time {timeout} --connect-timeout {timeout} -fsSL '{url}' >/dev/null"
+    try:
+        run(cmd)
+        return True
+    except RuntimeError:
+        return False
 
 
 def run(cmd):
@@ -121,7 +127,7 @@ def main():
     try:
         if network["use_vpn"]:
             vpn_command = network["vpn_start"]
-            vpn_interface = vpn_command.strip().split()[-1]
+            vpn_interface = network["vpn_interface"]
 
             if is_interface_up(vpn_interface):
                 logger.info("VPN already running")
@@ -131,7 +137,32 @@ def main():
                 vpn_started = True
 
         logger.info("Downloading TLE...")
-        download_tle(tle_url, tmp_file)
+        try:
+            download_tle(tle_url, tmp_file)
+        except RuntimeError:
+            logger.warning("Direct access to Celestrak failed, checking general internet connectivity...")
+
+            google_ok = check_url("https://www.google.com", timeout=15)
+            celestrak_ok = check_url("https://celestrak.org", timeout=15)
+
+            if not google_ok:
+                raise RuntimeError(
+                    "TLE download failed and general internet connectivity check also failed. "
+                    "The system appears to have no working internet connection."
+                )
+
+            if google_ok and not celestrak_ok:
+                raise RuntimeError(
+                    "TLE download failed, but general internet connectivity is working. "
+                    "Access to Celestrak appears to be blocked or unavailable. "
+                    "Celestrak sometimes blocks IP addresses after too many requests. "
+                    "If this happens, enable VPN in config.ini and try again."
+                )
+
+            raise RuntimeError(
+                "TLE download failed although general internet connectivity appears to work. "
+                "Please check the configured TLE URL and remote availability."
+            )
 
         sat_names = [s["name"] for s in satellites]
         logger.info("Filtering satellites: %s", sat_names)
