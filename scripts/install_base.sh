@@ -53,7 +53,6 @@ It will:
 - copy config.example.ini to config.ini if needed
 
 It will NOT fully automate:
-- WireGuard VPN secrets
 - rclone remote login
 - msmtp account credentials
 - SatDump installation path differences on custom systems
@@ -154,7 +153,6 @@ sudo apt install -y \
   libjemalloc-dev \
   libusb-1.0-0-dev \
   libdbus-1-dev \
-  wireguard \
   resolvconf \
   rclone \
   msmtp \
@@ -261,55 +259,7 @@ fi
 
 press_enter
 
-section "STEP 13 - OPTIONAL: PREPARE WIREGUARD TEMPLATE"
-
-cat <<'EOF'
-satpi can use WireGuard during TLE download.
-
-This script will NOT install real VPN secrets into your system.
-If you want, it will create a template file:
-
-  /etc/wireguard/proton.conf.example
-
-You must fill in:
-- PrivateKey
-- Address
-- Peer PublicKey
-- Endpoint
-
-before using it.
-EOF
-
-read -r -p "Create WireGuard template file? [y/N]: " CREATE_WG
-if [[ "${CREATE_WG:-N}" =~ ^[Yy]$ ]]; then
-    sudo mkdir -p /etc/wireguard
-    sudo tee /etc/wireguard/proton.conf.example >/dev/null <<'EOF'
-[Interface]
-PrivateKey = REPLACE_ME
-Address = 10.0.0.2/32
-# Optional:
-# PostUp = ip route add 192.168.0.0/24 via 192.168.0.1 dev wlan0
-# PostDown = ip route del 192.168.0.0/24 via 192.168.0.1 dev wlan0
-
-[Peer]
-PublicKey = REPLACE_ME
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = REPLACE_ME:51820
-PersistentKeepalive = 25
-EOF
-    info "Created /etc/wireguard/proton.conf.example"
-fi
-
-sudo rm -f /etc/resolv.conf
-sudo tee /etc/resolv.conf >/dev/null <<'EOF'
-nameserver 1.1.1.1
-nameserver 1.0.0.1
-nameserver 9.9.9.9
-EOF
-
-press_enter
-
-section "STEP 14 - CHECK INSTALLED TOOLS"
+section "STEP 13 - CHECK INSTALLED TOOLS"
 
 for cmd in python3 pip3 git curl jq rclone msmtp; do
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -346,9 +296,7 @@ Manual steps still required:
 
 5. If you use VPN for TLE downloads:
    copy and edit:
-   sudo cp /etc/wireguard/proton.conf.example /etc/wireguard/proton.conf
-   sudo nano /etc/wireguard/proton.conf
-   sudo chmod 600 /etc/wireguard/proton.conf
+   sudo cp /etc/
 
 6. Test the configuration:
    cd "${SATPI_DIR}"
