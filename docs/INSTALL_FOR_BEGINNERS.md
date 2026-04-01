@@ -92,7 +92,7 @@ sudo apt install -y git
 git clone https://github.com/HorvathAndreas/satpi.git
 
 cd ~/satpi
-bash scripts/install_base.sh
+scripts/install_base.sh
 
 Run the commands below after cloning the repository:
 

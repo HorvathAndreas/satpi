@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SATPI_DIR="${HOME}/satpi"
+SATPI_DIR="${REPO_DIR}"
 CONFIG_DIR="${SATPI_DIR}/config"
 CONFIG_EXAMPLE="${CONFIG_DIR}/config.example.ini"
 CONFIG_LOCAL="${CONFIG_DIR}/config.ini"
@@ -43,13 +43,10 @@ It will:
 - update the system
 - configure CPU performance mode
 - configure locale
-- disable some unneeded headless services
-- disable Wi-Fi powersave
+- disable services unneeded for a headless operation
 - install required packages
 - block DVB-T drivers for RTL-SDR
-- disable USB autosuspend
 - prepare directories
-- install Python dependency skyfield
 - copy config.example.ini to config.ini if needed
 
 It will NOT fully automate:
@@ -62,14 +59,14 @@ EOF
 
 press_enter
 
-section "STEP 1 - UPDATE SYSTEM"
+section "UPDATE SYSTEM"
 
 sudo apt update
 sudo apt full-upgrade -y
 
 press_enter
 
-section "STEP 2 - SET CPU GOVERNOR TO PERFORMANCE"
+section "SET CPU GOVERNOR TO PERFORMANCE"
 
 sudo tee /etc/systemd/system/cpu-performance.service >/dev/null <<'EOF'
 [Unit]
@@ -90,7 +87,7 @@ sudo systemctl start cpu-performance.service
 
 press_enter
 
-section "STEP 3 - CONFIGURE LOCALE"
+section "CONFIGURE LOCALE"
 
 sudo sed -i 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen
@@ -105,7 +102,7 @@ sudo sed -i 's/^AcceptEnv LANG LC_/#AcceptEnv LANG LC_/g' /etc/ssh/sshd_config |
 
 press_enter
 
-section "STEP 4 - DISABLE UNNEEDED HEADLESS SERVICES"
+section "DISABLE SERVICES UNNEEDED FOR HEADLESS OPERATION"
 
 sudo systemctl disable --now ModemManager.service || true
 sudo systemctl disable --now getty@tty1.service || true
@@ -114,17 +111,7 @@ sudo systemctl stop serial-getty@ttyAMA10.service || true
 
 press_enter
 
-section "STEP 5 - DISABLE WI-FI POWERSAVE"
-
-sudo mkdir -p /etc/NetworkManager/conf.d
-sudo tee /etc/NetworkManager/conf.d/wifi-powersave.conf >/dev/null <<'EOF'
-[connection]
-wifi.powersave=2
-EOF
-
-press_enter
-
-section "STEP 6 - INSTALL REQUIRED PACKAGES"
+section "INSTALL REQUIRED PACKAGES"
 
 sudo apt install -y \
   git \
@@ -135,8 +122,8 @@ sudo apt install -y \
   wget \
   jq \
   python3 \
-  python3-pip \
-  python3-venv \
+  python3-skyfield \
+  python3-numpy \
   rtl-sdr \
   librtlsdr-dev \
   ffmpeg \
@@ -153,14 +140,13 @@ sudo apt install -y \
   libjemalloc-dev \
   libusb-1.0-0-dev \
   libdbus-1-dev \
-  resolvconf \
   rclone \
   msmtp \
   rsync
 
 press_enter
 
-section "STEP 7 - BLOCK DVB-T DRIVERS"
+section "BLOCK DVB-T DRIVERS"
 
 sudo tee /etc/modprobe.d/blacklist-rtl2832.conf >/dev/null <<'EOF'
 blacklist dvb_usb_rtl28xxu
@@ -173,28 +159,14 @@ sudo udevadm trigger
 
 press_enter
 
-section "STEP 8 - DISABLE USB AUTOSUSPEND"
-
-sudo tee /etc/modprobe.d/usb-autosuspend.conf >/dev/null <<'EOF'
-options usbcore autosuspend=-1
-EOF
-
-press_enter
-
-section "STEP 9 - PREPARE SOURCE DIRECTORY"
+section "PREPARE SOURCE DIRECTORY"
 
 sudo mkdir -p /usr/local/src
 sudo chown -R "$USER:$USER" /usr/local/src
 
 press_enter
 
-section "STEP 10 - INSTALL PYTHON DEPENDENCY"
-
-python3 -m pip install --break-system-packages --user skyfield numpy
-
-press_enter
-
-section "STEP 11 - PREPARE SATPI DIRECTORY STRUCTURE"
+section "PREPARE SATPI DIRECTORY STRUCTURE"
 
 mkdir -p "${SATPI_DIR}"/{bin,config,data,logs,output,systemd/generated,tle,scripts}
 
@@ -211,57 +183,55 @@ fi
 
 press_enter
 
-section "STEP 12 - OPTIONAL: BUILD SATDUMP HEADLESS"
+section "BUILD SATDUMP HEADLESS"
 
 cat <<'EOF'
-You can now choose whether to build SatDump automatically.
+SatDump is required for satpi.
 
-Recommended default for this script:
-- build stable SatDump 1.2.2 headless
-- install to /usr/bin/satdump
-
-If you prefer to install SatDump manually, answer 'n'.
+This script will:
+- clone SatDump if it is not already present
+- switch to stable version 1.2.2
+- build a headless version
+- install it to /usr/bin/satdump
 EOF
-
-read -r -p "Build SatDump now? [y/N]: " BUILD_SATDUMP
-if [[ "${BUILD_SATDUMP:-N}" =~ ^[Yy]$ ]]; then
-    cd /usr/local/src
-
-    if [[ ! -d SatDump ]]; then
-        git clone https://github.com/SatDump/SatDump.git
-    fi
-
-    cd SatDump
-    sudo chown -R "$USER:$USER" .
-    git fetch --all --tags
-    git checkout 1.2.2
-
-    rm -rf build
-    mkdir build
-    cd build
-
-    cmake .. \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DSATDUMP_BUILD_UI=OFF \
-      -DSATDUMP_BUILD_GUI=OFF \
-      -DSATDUMP_BUILD_TESTS=OFF \
-      -DCMAKE_C_FLAGS="-O3 -march=native -pipe" \
-      -DCMAKE_CXX_FLAGS="-O3 -march=native -pipe" \
-      -DCMAKE_EXE_LINKER_FLAGS="-s"
-
-    cmake --build . -j "$(nproc)"
-    sudo cmake --install .
-    info "SatDump installed."
-else
-    warn "Skipping SatDump build."
-fi
 
 press_enter
 
-section "STEP 13 - CHECK INSTALLED TOOLS"
+cd /usr/local/src
 
-for cmd in python3 pip3 git curl jq rclone msmtp; do
+if [[ ! -d SatDump ]]; then
+    git clone https://github.com/SatDump/SatDump.git
+fi
+
+cd SatDump
+sudo chown -R "$USER:$USER" .
+git fetch --all --tags
+git checkout 1.2.2
+
+rm -rf build
+mkdir build
+cd build
+
+cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DSATDUMP_BUILD_UI=OFF \
+  -DSATDUMP_BUILD_GUI=OFF \
+  -DSATDUMP_BUILD_TESTS=OFF \
+  -DCMAKE_C_FLAGS="-O3 -march=native -pipe" \
+  -DCMAKE_CXX_FLAGS="-O3 -march=native -pipe" \
+  -DCMAKE_EXE_LINKER_FLAGS="-s"
+
+cmake --build . -j "$(nproc)"
+sudo cmake --install .
+
+info "SatDump installed."
+
+press_enter
+
+section "CHECK INSTALLED TOOLS"
+
+for cmd in python3 git curl jq rclone msmtp cmake; do
     if command -v "$cmd" >/dev/null 2>&1; then
         echo "[OK] $cmd -> $(command -v "$cmd")"
     else
@@ -275,9 +245,19 @@ else
     echo "[MISSING] satdump"
 fi
 
+section "CHECK INSTALLED TOOLS"
+
+for cmd in python3 git curl jq rclone msmtp; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+        echo "[OK] $cmd -> $(command -v "$cmd")"
+    else
+        echo "[MISSING] $cmd"
+    fi
+done
+
 press_enter
 
-section "STEP 15 - NEXT MANUAL STEPS"
+section "REQUIRED MANUAL STEPS"
 
 cat <<EOF
 Manual steps still required:
@@ -294,20 +274,14 @@ Manual steps still required:
 4. Test mail setup:
    printf "Subject: satpi test\n\nTest mail.\n" | /usr/bin/msmtp you@example.com
 
-5. If you use VPN for TLE downloads:
-   copy and edit:
-   sudo cp /etc/
-
-6. Test the configuration:
+5. Run the main workflow manually:
    cd "${SATPI_DIR}"
-   python3 bin/test_config.py
-
-7. Run the main workflow manually:
    python3 bin/update_tle.py
    python3 bin/predict_passes.py
    python3 bin/schedule_passes.py
 
-8. Generate refresh units:
+6. Generate refresh units:
+   cd "${SATPI_DIR}"
    python3 bin/generate_refresh_units.py
 EOF
 
