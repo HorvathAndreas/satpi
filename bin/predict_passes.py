@@ -61,11 +61,13 @@ def compute_passes_for_satellite(ts, observer, sat_obj, sat_cfg, start_dt, end_d
     t0 = ts.from_datetime(start_dt)
     t1 = ts.from_datetime(end_dt)
 
+# Use true AOS/LOS at horizon for scheduling.
+# Keep min_elevation only as a quality filter via max_elevation check below.
     t_events, events = sat_obj.find_events(
-        observer,
-        t0,
-        t1,
-        altitude_degrees=sat_cfg["min_elevation"],
+    observer,
+    t0,
+    t1,
+    altitude_degrees=0.0,
     )
 
     passes = []
