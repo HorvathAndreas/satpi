@@ -188,7 +188,7 @@ Suggested `.gitignore` entries:
 config/config.ini
 logs/
 output/
-data/passes.json
+results/passes/passes.json
 data/state.json
 systemd/generated/
 __pycache__/

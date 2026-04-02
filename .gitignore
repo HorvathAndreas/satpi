@@ -2,7 +2,7 @@ config/config.ini
 logs/
 output/
 tle/*.tle
-data/passes.json
+results/passes/passes.json
 data/state.json
 systemd/generated/
 systemd/satpi-refresh.service
