@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # satpi
 # Installs the base software and system setup for satpi on Raspberry Pi 4 / 5.
+# This script prepares a fresh Raspberry Pi OS system by installing required
+# packages, applying basic operating system settings, preparing the directory
+# structure and building the required SatDump binary. It serves as the standard
+# base installation workflow for bringing a new satpi system into operation.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
 

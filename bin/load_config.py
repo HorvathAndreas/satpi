@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # satpi
-# Loads and validates the satpi configuration file.
+# Loads, parses and validates the central satpi configuration file.
+# This module converts configuration values into typed Python data structures
+# and performs consistency checks so that the operational scripts fail early
+# and with clear error messages if required settings are missing or invalid.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
 

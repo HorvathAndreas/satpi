@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # satpi
-# Generates and schedules per-pass systemd timer and service units.
+# Generates systemd service and timer units for all relevant future passes.
+# This script reads the predicted pass data, removes outdated generated units
+# and creates one service and one timer for every pass that should still be
+# received. Its role is to translate the abstract pass plan into concrete
+# operating system jobs that systemd can execute automatically.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
-
-#!/usr/bin/env python3
 
 import glob
 import json

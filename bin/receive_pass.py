@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # satpi
-# Executes one scheduled reception, decode, upload and notification workflow.
+# Executes one scheduled satellite pass from start to finish.
+# This includes preparing the pass-specific output directory, starting SatDump
+# with the configured reception settings, stopping it at the scheduled time,
+# triggering decode and post-processing steps, copying the results and sending
+# an optional notification email.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
 

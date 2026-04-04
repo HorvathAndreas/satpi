@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # satpi
-# Generates the static systemd refresh units for the satpi workflow.
+# Creates and enables the refresh service and timer for periodic pass planning.
+# This script manages the higher-level automation layer that regularly updates
+# TLE data, predicts future passes and regenerates all per-pass systemd units.
+# Its job is not to receive a pass directly, but to keep the full planning chain
+# running automatically over time without manual intervention.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
-
-#!/usr/bin/env python3
 
 import logging
 import os

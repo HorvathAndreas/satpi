@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # satpi
-# Predicts upcoming satellite passes and writes passes.json.
+# Predicts upcoming satellite passes for the configured ground station.
+# This script uses the local filtered TLE file together with the configured
+# station position, elevation limits and scheduling window to calculate which
+# future passes are relevant for reception. The resulting pass data is written
+# in a structured form so that later steps can generate concrete jobs from it.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
-
-#!/usr/bin/env python3
 
 import json
 import logging

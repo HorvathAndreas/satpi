@@ -1,6 +1,11 @@
+update_tle.py
 #!/usr/bin/env python3
 # satpi
 # Downloads and filters TLE data for the configured satellites.
+# This script retrieves current orbital data from the configured remote source,
+# verifies that the download succeeded and writes a filtered local TLE file
+# containing only the satellites used by this installation. It is the first step
+# in the planning chain because pass prediction depends on up-to-date orbital data.
 # Author: Andreas Horvath
 # Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
 
