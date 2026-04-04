@@ -1,4 +1,3 @@
-update_tle.py
 #!/usr/bin/env python3
 # satpi
 # Downloads and filters TLE data for the configured satellites.
