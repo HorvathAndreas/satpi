@@ -1,7 +1,8 @@
 config/config.ini
 logs/
 output/
-tle/
+results/tle/*
+!results/tle/.gitkeep
 results/passes/*
 !results/passes/.gitkeep
 results/captures/*

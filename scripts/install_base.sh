@@ -172,7 +172,9 @@ press_enter
 
 section "PREPARE SATPI DIRECTORY STRUCTURE"
 
-mkdir -p "${SATPI_DIR}"/{bin,config,data,logs,output,systemd/generated,tle,scripts}
+mkdir -p "${SATPI_DIR}"/{bin,config,docs,logs,results,scripts,systemd}
+mkdir -p "${SATPI_DIR}/results"/{captures,passes,tle}
+mkdir -p "${SATPI_DIR}/systemd/generated"
 
 if [[ -f "$CONFIG_LOCAL" ]]; then
     warn "config.ini already exists. It will not be overwritten."
