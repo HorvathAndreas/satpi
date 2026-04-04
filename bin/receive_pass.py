@@ -82,9 +82,10 @@ def build_satdump_command(config, args, pass_output_dir):
     satdump_bin = satdump["binary_path"]
     sample_rate = str(int(hardware["sample_rate"]))
     frequency_hz = str(args.frequency_hz)
+    bandwidth_hz = str(int(args.bandwidth_hz))
     gain_db = str(hardware["gain"])
     live_pipeline = args.pipeline
-    source_id = hardware["source_id"]
+    source_id = str(hardware["source_id"])
 
     cmd = [
         satdump_bin,
@@ -94,18 +95,23 @@ def build_satdump_command(config, args, pass_output_dir):
         "--source",
         "rtlsdr",
         "--source_id",
-        str(source_id),
+        source_id,
         "--samplerate",
         sample_rate,
         "--frequency",
         frequency_hz,
+        "--bandwidth",
+        bandwidth_hz,
         "--gain",
         gain_db,
     ]
 
+    if hardware["bias_t"]:
+        cmd.append("--bias")
+
     return cmd, live_pipeline
 
-def decode_image(config, logger, args, pass_output_dir):
+def decode_image(config, logger, args, pass_id, pass_output_dir):
     decode_cfg = config["decode"]
     satdump = config["satdump"]
 
@@ -130,7 +136,7 @@ def decode_image(config, logger, args, pass_output_dir):
         logger.info("CADU file below threshold, skipping decode")
         return False
 
-    decode_log_path = os.path.join(pass_output_dir, "decode.log")
+    decode_log_path = os.path.join(config["paths"]["log_dir"], f"{pass_id}-decode.log")
     decode_cmd = [
         satdump["binary_path"],
         args.pipeline,
@@ -169,7 +175,7 @@ def decode_image(config, logger, args, pass_output_dir):
     logger.info("Decode finished but output directory not found: %s", success_dir)
     return False
 
-def copy_output(config, logger, pass_output_dir):
+def copy_output(config, logger, pass_id, pass_output_dir):
     copy_cfg = config["copytarget"]
 
     if not copy_cfg["enabled"]:
@@ -188,8 +194,7 @@ def copy_output(config, logger, pass_output_dir):
             return False, None, None
 
         target = f"{remote}:{remote_path}/{pass_name}"
-        upload_log = os.path.join(pass_output_dir, "upload.log")
-
+        upload_log = os.path.join(config["paths"]["log_dir"], f"{os.path.basename(pass_output_dir)}-upload.log")
         cmd = ["rclone", "copy", pass_output_dir, target]
         logger.info("Running copy command: %s", " ".join(cmd))
         logger.info("upload_log=%s", upload_log)
@@ -316,12 +321,12 @@ def send_notification(config, logger, args, pass_output_dir, link):
 
     return True
 
-def postprocess_output(config, logger, args, pass_output_dir, decode_ok):
+def postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok):
     if not decode_ok:
         logger.info("Decode not successful, skipping copy and notification")
         return
 
-    copy_ok, target, link = copy_output(config, logger, pass_output_dir)
+    copy_ok, target, link = copy_output(config, logger, pass_id, pass_output_dir)
     logger.info("copy_ok=%s", copy_ok)
     logger.info("copy_target=%s", target)
     logger.info("copy_link=%s", link)
@@ -358,7 +363,7 @@ def main():
     pass_output_dir = os.path.join(output_dir, pass_id)
     os.makedirs(pass_output_dir, exist_ok=True)
 
-    log_file = os.path.join(log_dir, f"receive_pass_{pass_id}.log")
+    log_file = os.path.join(log_dir, f"{pass_id}-receive_pass.log")
     logger = setup_logger(log_file)
 
     logger.info("receive_pass.py started")
@@ -407,7 +412,7 @@ def main():
         logger.error("SatDump binary not found: %s", satdump["binary_path"])
         return 1
 
-    satdump_log_path = os.path.join(pass_output_dir, "satdump.log")
+    satdump_log_path = os.path.join(log_dir, f"{pass_id}-satdump.log")
     cmd, live_pipeline = build_satdump_command(config, args, pass_output_dir)
 
     logger.info("using live pipeline=%s", live_pipeline)
@@ -452,9 +457,9 @@ def main():
 
     if stopped_by_scheduler and return_code in (-15, 0):
         logger.info("SatDump was stopped intentionally by scheduler")
-        decode_ok = decode_image(config, logger, args, pass_output_dir)
+        decode_ok = decode_image(config, logger, args, pass_id, pass_output_dir)
         logger.info("decode_ok=%s", decode_ok)
-        postprocess_output(config, logger, args, pass_output_dir, decode_ok)
+        postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok)
         logger.info("receive_pass.py finished successfully")
         return 0
 
@@ -462,9 +467,9 @@ def main():
         logger.error("SatDump failed")
         return return_code
 
-    decode_ok = decode_image(config, logger, args, pass_output_dir)
+    decode_ok = decode_image(config, logger, args, pass_id, pass_output_dir)
     logger.info("decode_ok=%s", decode_ok)
-    postprocess_output(config, logger, args, pass_output_dir, decode_ok)
+    postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok)
 
     logger.info("receive_pass.py finished successfully")
     return 0
