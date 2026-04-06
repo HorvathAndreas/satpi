@@ -128,6 +128,10 @@ sudo apt install -y \
   python3 \
   python3-skyfield \
   python3-numpy \
+  python3-pip \
+  python3-venv \
+  python3-openai \
+  python3-matplotlib \
   rtl-sdr \
   librtlsdr-dev \
   ffmpeg \
