@@ -188,6 +188,8 @@ def _parse_reception_setup(p):
         "lna": p.get("reception_setup", "lna", fallback=""),
         "rf_filter": p.get("reception_setup", "rf_filter", fallback=""),
         "feedline": p.get("reception_setup", "feedline", fallback=""),
+        "raspberry_pi": p.get("reception_setup", "raspberry_pi", fallback=""),
+        "power_supply": p.get("reception_setup", "power_supply", fallback=""),
         "additional_info": p.get("reception_setup", "additional_info", fallback=""),
     }
 

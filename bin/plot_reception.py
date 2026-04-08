@@ -86,8 +86,8 @@ def plot_skyplot(data: dict, samples: list[dict], output_path: str):
     if len(visible_samples) < 2:
         raise ValueError("Need at least 2 samples with elevation >= 0 for skyplot")
 
-    fig = plt.figure(figsize=(9, 9))
-    ax = fig.add_subplot(111, projection="polar")
+    fig = plt.figure(figsize=(11.69, 8.27))
+    ax = fig.add_axes([0.05, 0.10, 0.54, 0.80], projection="polar")
 
     # Skyplot convention:
     # - North at top
@@ -162,7 +162,7 @@ def plot_skyplot(data: dict, samples: list[dict], output_path: str):
         xy=(start_theta, start_radius),
         xytext=(8, 8),
         textcoords="offset points",
-        fontsize=9,
+        fontsize=6,
         color="blue",
         weight="bold",
     )
@@ -171,7 +171,7 @@ def plot_skyplot(data: dict, samples: list[dict], output_path: str):
         xy=(end_theta, end_radius),
         xytext=(8, -12),
         textcoords="offset points",
-        fontsize=9,
+        fontsize=6,
         color="black",
         weight="bold",
     )
@@ -181,15 +181,14 @@ def plot_skyplot(data: dict, samples: list[dict], output_path: str):
 
     metadata_text = build_metadata_text(data)
 
-    ax.text(
-        1.05,
-        0.95,
+    fig.text(
+        0.62,
+        0.86,
         metadata_text,
-        transform=ax.transAxes,
         va="top",
         ha="left",
-        fontsize=9,
-        bbox=dict(boxstyle="round", facecolor="white", alpha=0.85),
+        fontsize=6,
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.90),
     )
 
     legend_handles = [
@@ -199,10 +198,16 @@ def plot_skyplot(data: dict, samples: list[dict], output_path: str):
         plt.Line2D([0], [0], marker="o", color="blue", lw=0, label="Start"),
         plt.Line2D([0], [0], marker="x", color="black", lw=0, label="End"),
     ]
-    ax.legend(handles=legend_handles, loc="lower left", bbox_to_anchor=(1.05, 0.05))
 
-    fig.tight_layout(rect=[0, 0, 0.82, 1])
-    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    fig.legend(
+        handles=legend_handles,
+        loc="lower left",
+        bbox_to_anchor=(0.62, 0.14),
+        fontsize=6,
+        frameon=True,
+    )
+
+    fig.savefig(output_path, dpi=150)
     plt.close(fig)
 
 def merge_segments_by_state(samples: list[dict]) -> list[tuple[datetime, datetime, str]]:
@@ -262,7 +267,7 @@ def plot_timeseries(data: dict, samples: list[dict], output_path: str):
         metadata_text,
         va="top",
         ha="left",
-        fontsize=9,
+        fontsize=6,
         bbox=dict(boxstyle="round", facecolor="white", alpha=0.85),
     )
 
@@ -296,6 +301,8 @@ def build_metadata_text(data: dict) -> str:
         f"LNA: {reception_setup.get('lna', '-')}",
         f"RF filter: {reception_setup.get('rf_filter', '-')}",
         f"Feedline: {reception_setup.get('feedline', '-')}",
+        f"Raspberry Pi: {reception_setup.get('raspberry_pi', '-')}",
+        f"Power supply: {reception_setup.get('power_supply', '-')}",
         f"Pass start: {data.get('pass_start', '-')}",
         f"Pass end: {data.get('pass_end', '-')}",
     ]
@@ -319,7 +326,9 @@ def main():
     if args.output_dir:
         output_dir = os.path.abspath(args.output_dir)
     else:
-        output_dir = os.path.dirname(input_json)
+        base_dir = os.path.dirname(os.path.dirname(input_json))
+        pass_id = data["pass_id"]
+        output_dir = os.path.join(base_dir, "captures", pass_id)
 
     os.makedirs(output_dir, exist_ok=True)
 

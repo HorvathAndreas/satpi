@@ -412,6 +412,8 @@ def build_reception_json_header(config, args, pass_id):
             "lna": reception_setup["lna"],
             "rf_filter": reception_setup["rf_filter"],
             "feedline": reception_setup["feedline"],
+            "raspberry_pi": reception_setup["raspberry_pi"],
+            "power_supply": reception_setup["power_supply"],
             "additional_info": reception_setup["additional_info"],
         },
         "samples": [],
