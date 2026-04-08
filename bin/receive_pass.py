@@ -390,6 +390,7 @@ def parse_satdump_sync_line(line: str):
 
 def build_reception_json_header(config, args, pass_id):
     hardware = config["hardware"]
+    reception_setup = config["reception_setup"]
 
     return {
         "pass_id": pass_id,
@@ -404,9 +405,17 @@ def build_reception_json_header(config, args, pass_id):
         "pass_end": args.pass_end,
         "scheduled_start": args.scheduled_start,
         "scheduled_end": args.scheduled_end,
+        "reception_setup": {
+            "antenna_type": reception_setup["antenna_type"],
+            "antenna_location": reception_setup["antenna_location"],
+            "antenna_orientation": reception_setup["antenna_orientation"],
+            "lna": reception_setup["lna"],
+            "rf_filter": reception_setup["rf_filter"],
+            "feedline": reception_setup["feedline"],
+            "additional_info": reception_setup["additional_info"],
+        },
         "samples": [],
     }
-
 
 def write_json_atomic(target_path: str, payload: dict):
     target = Path(target_path)

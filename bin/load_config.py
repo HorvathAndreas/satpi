@@ -38,6 +38,8 @@ def load_config(path: str) -> Dict[str, Any]:
     config["notify"] = _parse_notify(parser)
     config["debug"] = _parse_debug(parser)
     config["systemd"] = _parse_systemd(parser)
+    config["reception_setup"] = _parse_reception_setup(parser)
+    config["optimize_reception"] = _parse_optimize_reception(parser)
     config["optimize_reception_ai"] = _parse_optimize_reception_ai(parser)
     _validate_config(config)
 
@@ -176,6 +178,43 @@ def _parse_systemd(p):
     return {
         "service_user": p.get("systemd", "service_user", fallback=None),
         "python_bin": p.get("systemd", "python_bin", fallback="/usr/bin/python3"),
+    }
+
+def _parse_reception_setup(p):
+    return {
+        "antenna_type": p.get("reception_setup", "antenna_type", fallback=""),
+        "antenna_location": p.get("reception_setup", "antenna_location", fallback=""),
+        "antenna_orientation": p.get("reception_setup", "antenna_orientation", fallback=""),
+        "lna": p.get("reception_setup", "lna", fallback=""),
+        "rf_filter": p.get("reception_setup", "rf_filter", fallback=""),
+        "feedline": p.get("reception_setup", "feedline", fallback=""),
+        "additional_info": p.get("reception_setup", "additional_info", fallback=""),
+    }
+
+def _parse_optimize_reception(p):
+    return {
+        "enabled": p.getboolean("optimize_reception", "enabled", fallback=False),
+        "apply_changes": p.getboolean("optimize_reception", "apply_changes", fallback=False),
+        "write_suggested_config": p.getboolean("optimize_reception", "write_suggested_config", fallback=True),
+        "satellite": p.get("optimize_reception", "satellite", fallback=""),
+        "pipeline": p.get("optimize_reception", "pipeline", fallback=""),
+        "min_max_elevation_deg": p.getfloat("optimize_reception", "min_max_elevation_deg", fallback=30.0),
+        "max_max_elevation_delta_deg": p.getfloat("optimize_reception", "max_max_elevation_delta_deg", fallback=10.0),
+        "same_pass_direction_only": p.getboolean("optimize_reception", "same_pass_direction_only", fallback=True),
+        "evaluation_min_elevation_deg": p.getfloat("optimize_reception", "evaluation_min_elevation_deg", fallback=10.0),
+        "evaluation_max_elevation_deg": p.getfloat("optimize_reception", "evaluation_max_elevation_deg", fallback=85.0),
+        "min_passes_per_gain": p.getint("optimize_reception", "min_passes_per_gain", fallback=2),
+        "min_total_passes": p.getint("optimize_reception", "min_total_passes", fallback=4),
+        "weight_deframer_synced_seconds": p.getfloat("optimize_reception", "weight_deframer_synced_seconds", fallback=1.0),
+        "weight_first_deframer_sync_delay": p.getfloat("optimize_reception", "weight_first_deframer_sync_delay", fallback=-0.4),
+        "weight_sync_drop_count": p.getfloat("optimize_reception", "weight_sync_drop_count", fallback=-0.5),
+        "weight_median_snr_synced": p.getfloat("optimize_reception", "weight_median_snr_synced", fallback=0.3),
+        "weight_median_ber_synced": p.getfloat("optimize_reception", "weight_median_ber_synced", fallback=-0.8),
+        "output_dir": p.get(
+            "optimize_reception",
+            "output_dir",
+            fallback="/home/andreas/satpi/results/optimization",
+        ),
     }
 
 def _parse_optimize_reception_ai(p):

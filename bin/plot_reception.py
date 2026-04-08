@@ -280,6 +280,8 @@ def plot_timeseries(data: dict, samples: list[dict], output_path: str):
     plt.close(fig)
 
 def build_metadata_text(data: dict) -> str:
+    reception_setup = data.get("reception_setup", {})
+
     lines = [
         f"Satellite: {data.get('satellite', '-')}",
         f"Pipeline: {data.get('pipeline', '-')}",
@@ -288,9 +290,20 @@ def build_metadata_text(data: dict) -> str:
         f"Gain: {data.get('gain', '-')}",
         f"Source ID: {data.get('source_id', '-')}",
         f"Bias-T: {data.get('bias_t', '-')}",
+        f"Antenna type: {reception_setup.get('antenna_type', '-')}",
+        f"Antenna location: {reception_setup.get('antenna_location', '-')}",
+        f"Antenna orientation: {reception_setup.get('antenna_orientation', '-')}",
+        f"LNA: {reception_setup.get('lna', '-')}",
+        f"RF filter: {reception_setup.get('rf_filter', '-')}",
+        f"Feedline: {reception_setup.get('feedline', '-')}",
         f"Pass start: {data.get('pass_start', '-')}",
         f"Pass end: {data.get('pass_end', '-')}",
     ]
+
+    additional_info = str(reception_setup.get("additional_info", "")).strip()
+    if additional_info and additional_info.lower() != "n/a":
+        lines.append(f"Additional info: {additional_info}")
+
     return "\n".join(lines)
 
 def main():

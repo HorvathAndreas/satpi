@@ -78,36 +78,6 @@ def get_config_path(cli_value: str | None) -> str:
     return os.path.join(base_dir, "config", "config.ini")
 
 
-def load_optimizer_settings(config_path: str) -> dict[str, Any]:
-    p = configparser.ConfigParser()
-    p.read(config_path, encoding="utf-8")
-
-    if not p.has_section("optimize_reception"):
-        raise ConfigError("Missing [optimize_reception] section in config.ini")
-
-    s = p["optimize_reception"]
-    return {
-        "enabled": s.getboolean("enabled", fallback=True),
-        "apply_changes": s.getboolean("apply_changes", fallback=False),
-        "write_suggested_config": s.getboolean("write_suggested_config", fallback=True),
-        "satellite": s.get("satellite"),
-        "pipeline": s.get("pipeline"),
-        "min_max_elevation_deg": s.getfloat("min_max_elevation_deg", fallback=30.0),
-        "max_max_elevation_delta_deg": s.getfloat("max_max_elevation_delta_deg", fallback=10.0),
-        "same_pass_direction_only": s.getboolean("same_pass_direction_only", fallback=True),
-        "evaluation_min_elevation_deg": s.getfloat("evaluation_min_elevation_deg", fallback=10.0),
-        "evaluation_max_elevation_deg": s.getfloat("evaluation_max_elevation_deg", fallback=85.0),
-        "min_passes_per_gain": s.getint("min_passes_per_gain", fallback=2),
-        "min_total_passes": s.getint("min_total_passes", fallback=4),
-        "weight_deframer_synced_seconds": s.getfloat("weight_deframer_synced_seconds", fallback=1.0),
-        "weight_first_deframer_sync_delay": s.getfloat("weight_first_deframer_sync_delay", fallback=-0.4),
-        "weight_sync_drop_count": s.getfloat("weight_sync_drop_count", fallback=-0.5),
-        "weight_median_snr_synced": s.getfloat("weight_median_snr_synced", fallback=0.3),
-        "weight_median_ber_synced": s.getfloat("weight_median_ber_synced", fallback=-0.8),
-        "output_dir": s.get("output_dir"),
-    }
-
-
 def list_reception_json_files(base_dir: str) -> list[str]:
     passes_dir = os.path.join(base_dir, "results", "passes")
     return sorted(str(p) for p in Path(passes_dir).glob("*-reception.json"))
@@ -461,7 +431,9 @@ def main():
 
     try:
         config = load_config(config_path)
-        settings = load_optimizer_settings(config_path)
+        if "optimize_reception" not in config:
+            raise ConfigError("Missing optimize_reception config block")
+        settings = config["optimize_reception"]
     except ConfigError as e:
         print(f"[optimize_reception] CONFIG ERROR: {e}")
         return 1
