@@ -335,7 +335,7 @@ def main():
     timeseries_path = os.path.join(output_dir, f"{pass_id}-timeseries.png")
 
     plot_skyplot(data, samples, skyplot_path)
-    moplot_timeseries(data, samples, timeseries_path)
+    plot_timeseries(data, samples, timeseries_path)
 
     print(f"Created: {skyplot_path}")
     print(f"Created: {timeseries_path}")
