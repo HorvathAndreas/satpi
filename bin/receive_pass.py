@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/python3
 # satpi
 # Executes one scheduled satellite pass from start to finish.
 # This includes preparing the pass-specific output directory, starting SatDump
@@ -431,18 +431,6 @@ def write_json_atomic(target_path: str, payload: dict):
     os.replace(tmp_path, target)
 
 
-def compute_az_el(config, sample_timestamp_utc: str, satellite_name: str):
-    """
-    Platzhalter.
-    Hier später mit derselben Orbit-/QTH-Logik wie in predict_passes.py
-    Azimut und Elevation für den gegebenen UTC-Zeitpunkt berechnen.
-
-    Muss zurückgeben:
-        (azimuth_deg, elevation_deg)
-    """
-    raise NotImplementedError("compute_az_el() noch nicht implementiert")
-
-
 def maybe_build_sample(config, current_radio_state: dict, sync_data: dict, satellite_name: str):
     if current_radio_state.get("snr_db") is None:
         return None
@@ -640,7 +628,9 @@ def main():
     local_pass_start = format_local_filename_timestamp(args.pass_start, timezone_name)
 
     pass_id = f"{local_pass_start}_{safe_name(args.satellite)}"
+
     pass_output_dir = os.path.join(output_dir, pass_id)
+
     os.makedirs(pass_output_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, f"{pass_id}-receive_pass.log")
@@ -696,8 +686,8 @@ def main():
 
     logger.info("using live pipeline=%s", live_pipeline)
 
+    satdump_log_path = os.path.join(log_dir, f"{pass_id}-satdump.log")
     reception_json_path = os.path.join(pass_output_dir, "reception.json")
-    reception_json_path = os.path.join(base_dir, "results", "passes", f"{pass_id}-reception.json")
 
     logger.info("satdump_log=%s", satdump_log_path)
     logger.info("reception_json=%s", reception_json_path)
