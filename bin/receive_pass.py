@@ -341,10 +341,6 @@ def send_notification(config, logger, args, pass_output_dir, link):
     return True
 
 def postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok):
-    if not decode_ok:
-        logger.info("Decode not successful, skipping copy and notification")
-        return
-
     copy_ok, target, link = copy_output(config, logger, pass_id, pass_output_dir)
     logger.info("copy_ok=%s", copy_ok)
     logger.info("copy_target=%s", target)
@@ -352,6 +348,10 @@ def postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok
 
     if not copy_ok:
         logger.info("Copy failed, skipping notification")
+        return
+
+    if not decode_ok:
+        logger.info("Decode not successful, skipping notification only")
         return
 
     notify_ok = send_notification(config, logger, args, pass_output_dir, link)
@@ -696,7 +696,7 @@ def main():
 
     logger.info("using live pipeline=%s", live_pipeline)
 
-    satdump_log_path = os.path.join(log_dir, f"{pass_id}-satdump.log")
+    reception_json_path = os.path.join(pass_output_dir, "reception.json")
     reception_json_path = os.path.join(base_dir, "results", "passes", f"{pass_id}-reception.json")
 
     logger.info("satdump_log=%s", satdump_log_path)
