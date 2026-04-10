@@ -31,7 +31,6 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 @dataclass
 class PassMetrics:
     path: str
@@ -50,6 +49,10 @@ class PassMetrics:
     power_supply: str
     additional_info: str
     max_elevation_deg: float
+    aos_azimuth: float | None
+    los_azimuth: float | None
+    culmination_azimuth: float | None
+    culmination_elevation: float | None
     direction: str
     sample_count: int
     first_deframer_sync_delay_seconds: float | None
@@ -60,13 +63,11 @@ class PassMetrics:
     peak_snr_db: float | None
     score: float | None = None
 
-
 def get_config_path(cli_value: str | None) -> str:
     if cli_value:
         return os.path.abspath(cli_value)
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, "config", "config.ini")
-
 
 def load_optimizer_settings(config_path: str) -> dict[str, Any]:
     p = configparser.ConfigParser()
@@ -80,14 +81,11 @@ def load_optimizer_settings(config_path: str) -> dict[str, Any]:
         "enabled": s.getboolean("enabled", fallback=True),
         "apply_changes": s.getboolean("apply_changes", fallback=False),
         "write_suggested_config": s.getboolean("write_suggested_config", fallback=True),
-        "satellite": s.get("satellite"),
-        "pipeline": s.get("pipeline"),
-        "min_max_elevation_deg": s.getfloat("min_max_elevation_deg", fallback=30.0),
-        "max_max_elevation_delta_deg": s.getfloat("max_max_elevation_delta_deg", fallback=10.0),
         "same_pass_direction_only": s.getboolean("same_pass_direction_only", fallback=True),
-        "evaluation_min_elevation_deg": s.getfloat("evaluation_min_elevation_deg", fallback=10.0),
-        "evaluation_max_elevation_deg": s.getfloat("evaluation_max_elevation_deg", fallback=85.0),
-        "min_passes_per_gain": s.getint("min_passes_per_gain", fallback=2),
+        "max_delta_aos_azimuth": s.getfloat("max_delta_aos_azimuth", fallback=20.0),
+        "max_delta_los_azimuth": s.getfloat("max_delta_los_azimuth", fallback=20.0),
+        "max_delta_culmination_azimuth": s.getfloat("max_delta_culmination_azimuth", fallback=15.0),
+        "max_delta_culmination_elevation": s.getfloat("max_delta_culmination_elevation", fallback=10.0),
         "min_total_passes": s.getint("min_total_passes", fallback=4),
         "weight_deframer_synced_seconds": s.getfloat("weight_deframer_synced_seconds", fallback=1.0),
         "weight_first_deframer_sync_delay": s.getfloat("weight_first_deframer_sync_delay", fallback=-0.4),
@@ -96,7 +94,6 @@ def load_optimizer_settings(config_path: str) -> dict[str, Any]:
         "weight_median_ber_synced": s.getfloat("weight_median_ber_synced", fallback=-0.8),
         "output_dir": s.get("output_dir"),
     }
-
 
 def open_db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
@@ -126,6 +123,10 @@ def load_metrics_from_db(db_path: str) -> list[PassMetrics]:
                 s.power_supply,
                 s.additional_info,
                 h.max_elevation_deg,
+                h.aos_azimuth,
+                h.los_azimuth,
+                h.culmination_azimuth,
+                h.culmination_elevation,
                 h.direction,
                 h.sample_count,
                 h.first_deframer_sync_delay_seconds,
@@ -165,6 +166,26 @@ def load_metrics_from_db(db_path: str) -> list[PassMetrics]:
             power_supply=str(row["power_supply"] or ""),
             additional_info=str(row["additional_info"] or ""),
             max_elevation_deg=max_elevation_deg,
+            aos_azimuth=(
+                float(row["aos_azimuth"])
+                if row["aos_azimuth"] is not None
+                else None
+            ),
+            los_azimuth=(
+                float(row["los_azimuth"])
+                if row["los_azimuth"] is not None
+                else None
+            ),
+            culmination_azimuth=(
+                float(row["culmination_azimuth"])
+                if row["culmination_azimuth"] is not None
+                else None
+            ),
+            culmination_elevation=(
+                float(row["culmination_elevation"])
+                if row["culmination_elevation"] is not None
+                else None
+            ),
             direction=str(row["direction"] or "unknown"),
             sample_count=int(row["sample_count"] or 0),
             first_deframer_sync_delay_seconds=(
@@ -190,6 +211,7 @@ def load_metrics_from_db(db_path: str) -> list[PassMetrics]:
                 else None
             ),
         )
+
         metrics_all.append(metrics)
 
     return metrics_all
@@ -214,54 +236,77 @@ def compute_score(m: PassMetrics, settings: dict[str, Any]) -> float:
     )
     return score
 
-
 def score_metrics_list(metrics_list: list[PassMetrics], settings: dict[str, Any]) -> list[PassMetrics]:
     scored: list[PassMetrics] = []
     for m in metrics_list:
-        if m.max_elevation_deg < settings["min_max_elevation_deg"]:
-            continue
         m.score = compute_score(m, settings)
         scored.append(m)
     return scored
 
+def angular_delta_deg(a: float | None, b: float | None) -> float | None:
+    if a is None or b is None:
+        return None
+
+    delta = abs(a - b)
+    if delta > 180.0:
+        delta = 360.0 - delta
+    return delta
+
 
 def passes_are_comparable(a: PassMetrics, b: PassMetrics, settings: dict[str, Any]) -> bool:
-    if a.satellite != b.satellite:
-        return False
-    if a.pipeline != b.pipeline:
-        return False
     if settings["same_pass_direction_only"] and a.direction != b.direction:
         return False
-    if abs(a.max_elevation_deg - b.max_elevation_deg) > settings["max_max_elevation_delta_deg"]:
+
+    aos_delta = angular_delta_deg(a.aos_azimuth, b.aos_azimuth)
+    if aos_delta is None or aos_delta > settings["max_delta_aos_azimuth"]:
         return False
+
+    los_delta = angular_delta_deg(a.los_azimuth, b.los_azimuth)
+    if los_delta is None or los_delta > settings["max_delta_los_azimuth"]:
+        return False
+
+    culmination_azimuth_delta = angular_delta_deg(a.culmination_azimuth, b.culmination_azimuth)
+    if (
+        culmination_azimuth_delta is None
+        or culmination_azimuth_delta > settings["max_delta_culmination_azimuth"]
+    ):
+        return False
+
+    if a.culmination_elevation is None or b.culmination_elevation is None:
+        return False
+
+    if abs(a.culmination_elevation - b.culmination_elevation) > settings["max_delta_culmination_elevation"]:
+        return False
+
     return True
 
-
 def select_comparable_passes(metrics_list: list[PassMetrics], settings: dict[str, Any]):
-    satellite_pipeline_matches = [
+    candidates = [
         m for m in metrics_list
-        if m.satellite == settings["satellite"] and m.pipeline == settings["pipeline"]
+        if m.culmination_elevation is not None
+        and m.aos_azimuth is not None
+        and m.los_azimuth is not None
+        and m.culmination_azimuth is not None
     ]
 
-    if not satellite_pipeline_matches:
+    if not candidates:
         return [], {
             "total_metrics": len(metrics_list),
-            "satellite_pipeline_matches": 0,
+            "candidate_passes": 0,
             "comparable_passes": 0,
             "reference_pass_id": None,
         }
 
-    reference = max(satellite_pipeline_matches, key=lambda m: m.max_elevation_deg)
-    comparable = [m for m in satellite_pipeline_matches if passes_are_comparable(reference, m, settings)]
+    reference = max(candidates, key=lambda m: m.culmination_elevation)
+    comparable = [m for m in candidates if passes_are_comparable(reference, m, settings)]
 
     stats = {
         "total_metrics": len(metrics_list),
-        "satellite_pipeline_matches": len(satellite_pipeline_matches),
+        "candidate_passes": len(candidates),
         "comparable_passes": len(comparable),
         "reference_pass_id": reference.pass_id,
     }
     return comparable, stats
-
 
 def fmt(value, digits=2, none_value="-"):
     if value is None:
@@ -330,8 +375,6 @@ def choose_recommended_setup(
 ) -> tuple[int | None, list[dict[str, Any]]]:
     summaries = []
     for setup_id, items in grouped.items():
-        if len(items) < settings["min_passes_per_gain"]:
-            continue
         summaries.append(summarize_setup_group(setup_id, items))
 
     if not summaries:
@@ -339,7 +382,6 @@ def choose_recommended_setup(
 
     summaries.sort(key=lambda x: x["avg_score"], reverse=True)
     return summaries[0]["setup_id"], summaries
-
 
 def detect_current_gain(config: dict[str, Any]) -> float:
     return float(config["hardware"]["gain"])
@@ -574,7 +616,7 @@ def main():
     comparable_metrics, selection_stats = select_comparable_passes(metrics_all, settings)
 
     print(f"[optimize_reception] total analyzed metrics: {selection_stats['total_metrics']}")
-    print(f"[optimize_reception] satellite/pipeline matches: {selection_stats['satellite_pipeline_matches']}")
+    print(f"[optimize_reception] candidate passes: {selection_stats['candidate_passes']}")
     print(f"[optimize_reception] comparable passes: {selection_stats['comparable_passes']}")
     print(f"[optimize_reception] reference pass: {selection_stats['reference_pass_id']}")
 
