@@ -113,13 +113,22 @@ def load_optimizer_settings(config_path: str) -> dict[str, Any]:
         raise ConfigError("Missing [optimize_reception] section in config.ini")
 
     s = p["optimize_reception"]
+    band_limits = [
+        s.getfloat("elevation_band_1_max", fallback=20.0),
+        s.getfloat("elevation_band_2_max", fallback=35.0),
+        s.getfloat("elevation_band_3_max", fallback=50.0),
+        s.getfloat("elevation_band_4_max", fallback=65.0),
+        s.getfloat("elevation_band_5_max", fallback=80.0),
+    ]
+    band_limits = sorted(band_limits)
+
     return {
         "enabled": s.getboolean("enabled", fallback=True),
-        "same_pass_direction_only": s.getboolean("same_pass_direction_only", fallback=True),
         "max_delta_aos_azimuth": s.getfloat("max_delta_aos_azimuth", fallback=20.0),
         "max_delta_los_azimuth": s.getfloat("max_delta_los_azimuth", fallback=20.0),
         "max_delta_culmination_azimuth": s.getfloat("max_delta_culmination_azimuth", fallback=15.0),
         "max_delta_culmination_elevation": s.getfloat("max_delta_culmination_elevation", fallback=10.0),
+        "elevation_band_limits": band_limits,
         "weight_deframer_synced_seconds": s.getfloat("weight_deframer_synced_seconds", fallback=1.0),
         "weight_first_deframer_sync_delay": s.getfloat("weight_first_deframer_sync_delay", fallback=-0.4),
         "weight_sync_drop_count": s.getfloat("weight_sync_drop_count", fallback=-0.5),
@@ -134,7 +143,6 @@ def load_optimizer_settings(config_path: str) -> dict[str, Any]:
             ),
         ),
     }
-
 
 def open_db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
@@ -260,13 +268,32 @@ def angular_delta_deg(a: float | None, b: float | None) -> float | None:
         delta = 360.0 - delta
     return delta
 
+def elevation_band_index(culmination_elevation_deg: float | None, settings: dict[str, Any]) -> int | None:
+    if culmination_elevation_deg is None:
+        return None
+
+    limits = settings["elevation_band_limits"]
+
+    for idx, limit in enumerate(limits):
+        if culmination_elevation_deg < limit:
+            return idx
+
+    return len(limits)
 
 def passes_are_comparable(a: PassMetrics, b: PassMetrics, settings: dict[str, Any]) -> bool:
     if a.satellite != b.satellite:
         return False
     if a.pipeline != b.pipeline:
         return False
-    if settings["same_pass_direction_only"] and a.direction != b.direction:
+
+    if a.culmination_elevation_deg is None or b.culmination_elevation_deg is None:
+        return False
+
+    a_band = elevation_band_index(a.culmination_elevation_deg, settings)
+    b_band = elevation_band_index(b.culmination_elevation_deg, settings)
+    if a_band is None or b_band is None:
+        return False
+    if a_band != b_band:
         return False
 
     aos_delta = angular_delta_deg(a.aos_azimuth_deg, b.aos_azimuth_deg)
@@ -281,13 +308,10 @@ def passes_are_comparable(a: PassMetrics, b: PassMetrics, settings: dict[str, An
     if culm_az_delta is None or culm_az_delta > settings["max_delta_culmination_azimuth"]:
         return False
 
-    if a.culmination_elevation_deg is None or b.culmination_elevation_deg is None:
-        return False
     if abs(a.culmination_elevation_deg - b.culmination_elevation_deg) > settings["max_delta_culmination_elevation"]:
         return False
 
     return True
-
 
 def comparable_candidates(metrics_list: list[PassMetrics]) -> list[PassMetrics]:
     return [
@@ -428,23 +452,37 @@ def direction_label_from_pass(group: list[PassMetrics]) -> str:
     return f"{sector_name(aos)} to {sector_name(los)}"
 
 
-def elevation_band_label(group: list[PassMetrics]) -> str:
-    avg_el = average([m.culmination_elevation_deg for m in group if m.culmination_elevation_deg is not None])
-    if avg_el is None:
+def elevation_band_label(group: list[PassMetrics], settings: dict[str, Any]) -> str:
+    if not group:
         return "unknown elevation"
-    if avg_el > 80:
-        return "very high elevation (>80 degrees)"
-    if avg_el >= 60:
-        return "high elevation (60-80 degrees)"
-    if avg_el >= 40:
-        return "medium elevation (40-60 degrees)"
-    return "low elevation (<40 degrees)"
 
+    limits = settings["elevation_band_limits"]
+    band_indices = {
+        elevation_band_index(m.culmination_elevation_deg, settings)
+        for m in group
+        if m.culmination_elevation_deg is not None
+    }
 
-def group_title(group: list[PassMetrics]) -> str:
+    if len(band_indices) != 1:
+        return "mixed elevation bands"
+
+    band = next(iter(band_indices))
+
+    if band == 0:
+        return f"very low elevation (<{int(limits[0])} degrees)"
+    if band == 1:
+        return f"low elevation ({int(limits[0])}-{int(limits[1])} degrees)"
+    if band == 2:
+        return f"lower medium elevation ({int(limits[1])}-{int(limits[2])} degrees)"
+    if band == 3:
+        return f"upper medium elevation ({int(limits[2])}-{int(limits[3])} degrees)"
+    if band == 4:
+        return f"high elevation ({int(limits[3])}-{int(limits[4])} degrees)"
+    return f"very high elevation (>{int(limits[4])} degrees)"
+
+def group_title(group: list[PassMetrics], settings: dict[str, Any]) -> str:
     sat = group[0].satellite
-    return f"{sat}, {direction_label_from_pass(group)}, {elevation_band_label(group)}"
-
+    return f"{sat}, {direction_label_from_pass(group)}, {elevation_band_label(group, settings)}"
 
 def load_reception_samples_for_pass(m: PassMetrics) -> list[dict[str, Any]]:
     if not m.path:
@@ -594,7 +632,7 @@ def evaluate_group(
 
     return {
         "group_id": group_id,
-        "title": group_title(items),
+        "title": group_title(items, settings),
         "satellite": items[0].satellite,
         "pipeline": items[0].pipeline,
         "direction": items[0].direction,
@@ -604,7 +642,6 @@ def evaluate_group(
         "criteria": {
             "same_satellite": True,
             "same_pipeline": True,
-            "same_pass_direction_only": bool(settings["same_pass_direction_only"]),
             "max_delta_aos_azimuth": settings["max_delta_aos_azimuth"],
             "max_delta_los_azimuth": settings["max_delta_los_azimuth"],
             "max_delta_culmination_azimuth": settings["max_delta_culmination_azimuth"],
@@ -677,13 +714,7 @@ def summarize_across_groups(group_reports: list[dict[str, Any]]) -> dict[str, An
             "avg_group_score": average(scores),
         })
 
-    setup_overview.sort(
-        key=lambda x: (
-            x["group_wins"],
-            x["avg_group_score"] if x["avg_group_score"] is not None else -1.0,
-        ),
-        reverse=True,
-    )
+    setup_overview.sort(key=lambda x: x["setup_id"])
 
     return {
         "total_groups": len(group_reports),
@@ -776,14 +807,15 @@ def write_report_pdf(output_path: str, payload: dict[str, Any]) -> None:
         [make_para("Criterion", small), make_para("Value", small)],
         [make_para("Same satellite", small), make_para("required", small)],
         [make_para("Same pipeline", small), make_para("required", small)],
-        [make_para("Same pass direction only", small), make_para(str(c["same_pass_direction_only"]), small)],
         [make_para("Max delta AOS azimuth [deg]", small), make_para(str(c["max_delta_aos_azimuth"]), small)],
         [make_para("Max delta LOS azimuth [deg]", small), make_para(str(c["max_delta_los_azimuth"]), small)],
+        [make_para("Elevation bands [deg]", small), make_para(", ".join(str(int(x)) for x in c["elevation_band_limits"]), small)],
         [make_para("Max delta culmination azimuth [deg]", small), make_para(str(c["max_delta_culmination_azimuth"]), small)],
         [make_para("Max delta culmination elevation [deg]", small), make_para(str(c["max_delta_culmination_elevation"]), small)],
         [make_para("Minimum passes per evaluable group", small), make_para(str(payload["min_passes_per_group"]), small)],
         [make_para("Minimum setups per evaluable group", small), make_para(str(payload["min_setups_per_group"]), small)],
     ]
+
     add_table(story, criteria_rows, [80, 120], font_size=8)
     story.append(Spacer(1, 4 * mm))
 
@@ -838,6 +870,7 @@ def write_report_pdf(output_path: str, payload: dict[str, Any]) -> None:
 
     story.append(Paragraph("4. Similar-Pass Groups", h1))
     for idx, group in enumerate(payload["groups"]):
+
         story.append(Paragraph(ptext(f"Group {group['group_id']}: {group['title']}"), h2))
 
         meta_rows = [
@@ -859,10 +892,27 @@ def write_report_pdf(output_path: str, payload: dict[str, Any]) -> None:
         if group.get("skyplot_path") and os.path.exists(group["skyplot_path"]):
             story.append(Paragraph("Skyplot of passes in this group", small))
             story.append(Spacer(1, 1 * mm))
-            story.append(RLImage(group["skyplot_path"], width=100 * mm, height=100 * mm))
-            story.append(Spacer(1, 3 * mm))
 
+            img = RLImage(group["skyplot_path"])
+
+            available_width = doc.width
+            available_height = doc.height - 35 * mm
+
+            width_scale = available_width / img.drawWidth
+            height_scale = available_height / img.drawHeight
+            scale = min(width_scale, height_scale, 1.0)
+
+            img.drawWidth *= scale
+            img.drawHeight *= scale
+
+            story.append(img)
+            story.append(Spacer(1, 2 * mm))
+
+        story.append(PageBreak())
+
+        story.append(Paragraph(ptext(f"Group {group['group_id']}: {group['title']}"), h2))
         story.append(Paragraph("Passes in this group", small))
+
         pass_rows = [[
             make_para("Pass ID", small),
             make_para("Setup", small),
@@ -894,7 +944,12 @@ def write_report_pdf(output_path: str, payload: dict[str, Any]) -> None:
                 make_para(fmt(p["median_snr_synced"], 2), small),
                 make_para(fmt(p["median_ber_synced"], 4), small),
             ])
-        add_table(story, pass_rows, [44, 14, 14, 14, 16, 14, 14, 14, 16, 16, 12, 14, 16], font_size=7)
+        add_table(
+            story,
+            pass_rows,
+            [62, 14, 14, 16, 16, 16, 18, 16, 18, 18, 14, 16, 18],
+            font_size=7,
+        )
         story.append(Spacer(1, 3 * mm))
 
         story.append(Paragraph("Setup comparison within this group", small))
@@ -921,7 +976,12 @@ def write_report_pdf(output_path: str, payload: dict[str, Any]) -> None:
                 make_para(fmt(s["avg_median_ber_synced"], 4), small),
                 make_para(s["setup_fingerprint"], small),
             ])
-        add_table(story, setup_rows, [12, 14, 18, 18, 20, 16, 16, 18, 130], font_size=7)
+        add_table(
+            story,
+            setup_rows,
+            [14, 16, 18, 20, 22, 18, 18, 20, 150],
+            font_size=7,
+        )
         story.append(Spacer(1, 4 * mm))
 
         if idx != len(payload["groups"]) - 1:
@@ -945,11 +1005,11 @@ def build_payload(
         "min_passes_per_group": min_passes_per_group,
         "min_setups_per_group": min_setups_per_group,
         "grouping_criteria": {
-            "same_pass_direction_only": settings["same_pass_direction_only"],
             "max_delta_aos_azimuth": settings["max_delta_aos_azimuth"],
             "max_delta_los_azimuth": settings["max_delta_los_azimuth"],
             "max_delta_culmination_azimuth": settings["max_delta_culmination_azimuth"],
             "max_delta_culmination_elevation": settings["max_delta_culmination_elevation"],
+            "elevation_band_limits": settings["elevation_band_limits"],
         },
         "duplicate_setup_fingerprints": detect_duplicate_setup_fingerprints(metrics_all),
         "global_summary": summarize_across_groups(group_reports),
@@ -1001,6 +1061,12 @@ def main():
         args.min_setups_per_group,
         plot_dir,
     )
+
+    group_reports = [g for g in group_reports if g["setup_count"] >= 2]
+
+    if not group_reports:
+        print("[optimize_reception] no reportable groups with at least 2 setups found")
+        return 1
 
     payload = build_payload(
         metrics_all,

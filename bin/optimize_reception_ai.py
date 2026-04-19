@@ -35,8 +35,17 @@ def parse_args():
         default=200,
         help="Limit number of samples included in the prompt",
     )
+    parser.add_argument(
+        "--reception-json",
+        default=None,
+        help="Path to a specific reception.json file to analyze",
+    )
+    parser.add_argument(
+        "--pass-id",
+        default=None,
+        help="Analyze the reception.json for a specific pass_id directory name",
+    )
     return parser.parse_args()
-
 
 def load_reception_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
@@ -59,6 +68,15 @@ def find_latest_reception_json(config: dict) -> Path:
         raise FileNotFoundError(f"No reception JSON files found in: {passes_dir}")
 
     return json_files[0]
+
+def find_reception_json_by_pass_id(config: dict, pass_id: str) -> Path:
+    passes_dir = Path(config["paths"]["output_dir"])
+    target = passes_dir / pass_id / "reception.json"
+
+    if not target.exists():
+        raise FileNotFoundError(f"reception.json not found for pass_id '{pass_id}': {target}")
+
+    return target
 
 def reduce_payload(data: dict, max_samples: int) -> dict:
     reduced = dict(data)
@@ -149,7 +167,15 @@ def main():
     include_optimizer_report = ai_cfg["include_optimizer_report"]
 
     try:
-        reception_path = find_latest_reception_json(config)
+        if args.reception_json:
+            reception_path = Path(args.reception_json).expanduser().resolve()
+            if not reception_path.exists():
+                print(f"[ERROR] reception JSON not found: {reception_path}")
+                return 1
+        elif args.pass_id:
+            reception_path = find_reception_json_by_pass_id(config, args.pass_id)
+        else:
+            reception_path = find_latest_reception_json(config)
     except FileNotFoundError as e:
         print(f"[ERROR] {e}")
         return 1
@@ -161,13 +187,24 @@ def main():
     payload = reduce_payload(data, args.max_samples)
     prompt = build_prompt(payload, include_optimizer_report)
 
+    print(f"[INFO] Prompt length: {len(prompt)} characters")
+    print(f"[INFO] Included samples: {payload['_included_sample_count']} of {payload['_original_sample_count']}")
+
     client = OpenAI(api_key=api_key)
 
+    client = OpenAI(
+        api_key=api_key,
+        timeout=60.0,
+    )
+
     try:
+        print("[INFO] Sending request to OpenAI API...")
         response = client.responses.create(
             model=model,
             input=prompt,
         )
+        print("[INFO] OpenAI API response received.")
+
     except RateLimitError as e:
         print(f"[ERROR] OpenAI API quota/rate-limit problem: {e}")
         return 1

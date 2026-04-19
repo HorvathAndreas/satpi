@@ -194,7 +194,6 @@ def _parse_reception_setup(p):
 def _parse_optimize_reception(p):
     return {
         "enabled": p.getboolean("optimize_reception", "enabled", fallback=False),
-        "same_pass_direction_only": p.getboolean("optimize_reception", "same_pass_direction_only", fallback=True),
         "max_delta_aos_azimuth": p.getfloat("optimize_reception", "max_delta_aos_azimuth", fallback=20.0),
         "max_delta_los_azimuth": p.getfloat("optimize_reception", "max_delta_los_azimuth", fallback=20.0),
         "max_delta_culmination_azimuth": p.getfloat(
