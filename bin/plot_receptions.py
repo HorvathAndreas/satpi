@@ -98,6 +98,16 @@ def build_parser(config) -> argparse.ArgumentParser:
         default=None,
         help="Plot multiple pass_ids as one combined skyplot. Repeat option or use comma-separated values",
     )
+    parser.add_argument(
+        "--highlight-pass-id",
+        default=None,
+        help="Highlight exactly this pass_id in a combined skyplot",
+    )
+    parser.add_argument(
+        "--highlight-label",
+        default="winning pass",
+        help="Label text for the highlighted pass in a combined skyplot",
+    )
 
     parser.add_argument(
         "--satellite",
@@ -756,7 +766,12 @@ def build_combined_output_filename(filters: dict) -> str:
     return "skyplot_filtered.png"
 
 
-def draw_combined_plot(pass_map, output_path: str):
+def draw_combined_plot(
+    pass_map,
+    output_path: str,
+    highlight_pass_id: str | None = None,
+    highlight_label: str = "winning pass",
+):
     fig = plt.figure(figsize=(12, 9))
     ax = fig.add_axes([0.06, 0.08, 0.62, 0.84], projection="polar")
 
@@ -780,6 +795,7 @@ def draw_combined_plot(pass_map, output_path: str):
         pass_count += 1
         satellite_name = samples[0]["satellite"]
         arrow_color = satellite_arrow_colors[satellite_name]
+        is_highlighted = highlight_pass_id is not None and pass_id == highlight_pass_id
 
         for i in range(len(samples) - 1):
             s1 = samples[i]
@@ -799,6 +815,12 @@ def draw_combined_plot(pass_map, output_path: str):
             color = state_color(s1["sync_state"])
             linewidth = 1.2 if s1["sync_state"] == "NOSYNC" else 2.0
             alpha = 0.35 if s1["sync_state"] == "NOSYNC" else 0.8
+            zorder = 10
+
+            if is_highlighted:
+                linewidth += 1.4
+                alpha = 1.0
+                zorder = 40
 
             ax.plot(
                 theta,
@@ -807,6 +829,7 @@ def draw_combined_plot(pass_map, output_path: str):
                 linewidth=linewidth,
                 alpha=alpha,
                 linestyle="-",
+                zorder=zorder,
             )
             total_segments += 1
 
@@ -834,7 +857,33 @@ def draw_combined_plot(pass_map, output_path: str):
                     shrinkB=0,
                     mutation_scale=14,
                 ),
-                zorder=80,
+                zorder=80 if not is_highlighted else 90,
+            )
+
+        if is_highlighted and visible_samples:
+            mid = visible_samples[len(visible_samples) // 2]
+            mid_theta = math.radians(mid["azimuth_deg"])
+            mid_radius = 90.0 - mid["elevation_deg"]
+
+            ax.annotate(
+                highlight_label,
+                xy=(mid_theta, mid_radius),
+                xytext=(-70, -45),
+                textcoords="offset points",
+                ha="right",
+                va="top",
+                fontsize=8,
+                fontweight="bold",
+                color="black",
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="white", alpha=0.9),
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color="black",
+                    lw=1.2,
+                    shrinkA=0,
+                    shrinkB=0,
+                ),
+                zorder=120,
             )
 
     sync_legend_handles = [
@@ -973,7 +1022,12 @@ def main():
             output_filename = "skyplot_grouped_passes.png"
             output_path = os.path.join(reports_dir, output_filename)
 
-            draw_combined_plot(usable_passes, output_path)
+            draw_combined_plot(
+                usable_passes,
+                output_path,
+                highlight_pass_id=args.highlight_pass_id,
+                highlight_label=args.highlight_label,
+            )
             print(f"Created: {output_path}")
             return
 
@@ -989,7 +1043,12 @@ def main():
         output_filename = build_combined_output_filename(filters)
         output_path = os.path.join(reports_dir, output_filename)
 
-        draw_combined_plot(usable_passes, output_path)
+        draw_combined_plot(
+            usable_passes,
+            output_path,
+            highlight_pass_id=args.highlight_pass_id,
+            highlight_label=args.highlight_label,
+        )
         print(f"Created: {output_path}")
     finally:
         conn.close()

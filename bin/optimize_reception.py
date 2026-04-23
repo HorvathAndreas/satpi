@@ -507,7 +507,16 @@ def load_reception_samples_for_pass(m: PassMetrics) -> list[dict[str, Any]]:
     except Exception:
         return []
 
-def make_group_skyplot(group_id: int, items: list[PassMetrics], output_dir: Path) -> str | None:
+
+    base_dir = Path(__file__).resolve().parent.parent
+
+def make_group_skyplot(
+    group_id: int,
+    items: list[PassMetrics],
+    output_dir: Path,
+    highlight_pass_id: str | None = None,
+    highlight_label: str = "winning pass",
+) -> str | None:
     if len(items) < 2:
         return None
 
@@ -527,6 +536,10 @@ def make_group_skyplot(group_id: int, items: list[PassMetrics], output_dir: Path
     cmd = [python_bin, str(plot_script)]
     for item in items:
         cmd.extend(["--pass-id-list", item.pass_id])
+
+    if highlight_pass_id:
+        cmd.extend(["--highlight-pass-id", highlight_pass_id])
+        cmd.extend(["--highlight-label", highlight_label])
 
     result = subprocess.run(
         cmd,
@@ -602,8 +615,21 @@ def evaluate_group(
     unique_setups = sorted(grouped.keys())
     evaluable = len(items) >= min_passes and len(unique_setups) >= min_setups
     winner_setup_id = setup_summaries[0]["setup_id"] if evaluable and setup_summaries else None
+
+    winner_pass_id = None
+    if evaluable and winner_setup_id is not None:
+        winner_candidates = [m for m in items if m.setup_id == winner_setup_id and m.score is not None]
+        if winner_candidates:
+            winner_candidates.sort(key=lambda m: (m.score, m.total_deframer_synced_seconds), reverse=True)
+            winner_pass_id = winner_candidates[0].pass_id
     score_values = [float(m.score) for m in items if m.score is not None]
-    skyplot_path = make_group_skyplot(group_id, items, plot_dir)
+    skyplot_path = make_group_skyplot(
+        group_id,
+        items,
+        plot_dir,
+        highlight_pass_id=winner_pass_id,
+        highlight_label="winning pass",
+    )
 
     note = ""
     if not evaluable:
@@ -663,6 +689,7 @@ def evaluate_group(
         },
         "evaluable": evaluable,
         "winner_setup_id": winner_setup_id,
+        "winner_pass_id": winner_pass_id,
         "evaluation_note": note,
         "setup_summaries": setup_summaries,
         "passes": [asdict(m) for m in items],
