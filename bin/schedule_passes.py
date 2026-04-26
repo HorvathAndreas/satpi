@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
-# satpi
-# Generates systemd service and timer units for all relevant future passes.
-# This script reads the predicted pass data, removes outdated generated units
-# and creates one service and one timer for every pass that should still be
-# received. Its role is to translate the abstract pass plan into concrete
-# operating system jobs that systemd can execute automatically.
-# Author: Andreas Horvath
-# Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
+"""satpi – schedule_passes
+
+Generates systemd service and timer units for all relevant future passes.
+
+Reads the predicted pass data, removes outdated generated units and creates
+one service + one timer for every pass that should still be received.
+
+Protocol change vs. previous version:
+  The generated .service no longer passes the pass data as positional CLI
+  arguments. Instead, each pass is written to a sidecar JSON file
+  (<unit-basename>.pass.json) next to its unit file, and the service is
+  invoked as:
+      ExecStart=<python> <receiver_script> --pass-file <json-path>
+  The receiver script must accept --pass-file.
+
+Author: Andreas Horvath
+Project: Autonomous, config-driven satellite reception pipeline for Raspberry Pi
+"""
+
+from __future__ import annotations
 
 import glob
 import json
@@ -14,15 +26,28 @@ import logging
 import os
 import re
 import subprocess
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from load_config import load_config, ConfigError
 
 
+# --- Constants ---------------------------------------------------------------
+
+LOG_MAX_BYTES = 1_000_000
+LOG_BACKUP_COUNT = 5
+SYSTEMCTL_TIMEOUT = 30  # seconds
+RECENT_PASS_GRACE_SECONDS = 60  # keep passes that just started within this window
+
 logger = logging.getLogger("satpi.schedule")
 
 
-def setup_logging(log_dir):
+# --- Logging -----------------------------------------------------------------
+
+def setup_logging(log_dir: str) -> None:
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "schedule_passes.log")
 
@@ -31,32 +56,62 @@ def setup_logging(log_dir):
 
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    fh = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 
-def run(cmd):
+# --- Subprocess helpers ------------------------------------------------------
+
+def run(cmd: Sequence[str], *, check: bool = True, timeout: int = SYSTEMCTL_TIMEOUT) -> subprocess.CompletedProcess:
+    """Run *cmd* and log output. Raise if check and returncode != 0."""
     logger.info("Running: %s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.stdout.strip():
-        logger.info("stdout: %s", result.stdout.strip())
-    if result.stderr.strip():
-        logger.info("stderr: %s", result.stderr.strip())
-    if result.returncode != 0:
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+    stdout = result.stdout.strip()
+    stderr = result.stderr.strip()
+    ok = result.returncode == 0
+
+    if stdout:
+        logger.debug("stdout: %s", stdout)
+    if stderr:
+        (logger.debug if ok else logger.warning)("stderr: %s", stderr)
+
+    if not ok and check:
         raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(cmd)}")
     return result
 
 
-def parse_utc(ts):
+def ensure_sudo_nopasswd() -> None:
+    """Fail fast if sudo would prompt for a password."""
+    r = subprocess.run(["sudo", "-n", "true"], capture_output=True, text=True, timeout=5)
+    if r.returncode != 0:
+        raise RuntimeError(
+            "Passwordless sudo is required for systemctl operations. "
+            "Configure a sudoers rule for this user (e.g. "
+            "'<user> ALL=(root) NOPASSWD: /bin/systemctl') and try again."
+        )
+
+
+def systemctl_is_active(unit: str) -> bool:
+    r = subprocess.run(
+        ["systemctl", "is-active", "--quiet", unit],
+        capture_output=True, text=True, timeout=10,
+    )
+    return r.returncode == 0
+
+
+# --- Time / name helpers -----------------------------------------------------
+
+def parse_utc(ts: str) -> datetime:
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 
-def isoformat_utc(dt):
+def isoformat_utc(dt: datetime) -> str:
     return (
         dt.astimezone(timezone.utc)
         .replace(microsecond=0)
@@ -65,28 +120,28 @@ def isoformat_utc(dt):
     )
 
 
-def systemd_time(dt):
+def systemd_time(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def sanitize_name(value):
+def sanitize_name(value: str) -> str:
     value = value.upper().replace(" ", "-").replace("_", "-")
     value = re.sub(r"[^A-Z0-9\-]", "-", value)
     value = re.sub(r"-+", "-", value).strip("-")
     return value
 
-def _normalize_direction_value(value):
+
+# --- Direction filtering -----------------------------------------------------
+
+def _normalize_direction(value: Any) -> Optional[str]:
     if value is None:
         return None
-
-    value = str(value).strip().lower()
-    value = value.replace("-", "_").replace(" ", "_")
-    return value
+    s = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    return s or None
 
 
-def _azimuth_to_cardinal(azimuth_deg):
+def _azimuth_to_cardinal(azimuth_deg: float) -> str:
     az = float(azimuth_deg) % 360.0
-
     if az >= 337.5 or az < 22.5:
         return "north"
     if az < 67.5:
@@ -104,256 +159,361 @@ def _azimuth_to_cardinal(azimuth_deg):
     return "northwest"
 
 
-def determine_pass_direction(pass_entry):
+def determine_pass_direction(pass_entry: Dict[str, Any]) -> str:
+    """Return a normalized direction label, reconstructing it from azimuths if needed."""
     for key in ("direction", "pass_direction", "flight_direction"):
-        if key in pass_entry and pass_entry[key] not in (None, ""):
-            return _normalize_direction_value(pass_entry[key])
+        if pass_entry.get(key) not in (None, ""):
+            return _normalize_direction(pass_entry[key]) or "all"
 
-    aos_az = None
-    los_az = None
-
-    for key in ("aos_azimuth_deg", "aos_azimuth", "start_azimuth_deg", "start_azimuth"):
-        if key in pass_entry:
-            aos_az = pass_entry[key]
-            break
-
-    for key in ("los_azimuth_deg", "los_azimuth", "end_azimuth_deg", "end_azimuth"):
-        if key in pass_entry:
-            los_az = pass_entry[key]
-            break
-
-    if aos_az is None or los_az is None:
+    aos = _first_present(pass_entry, ("aos_azimuth_deg", "aos_azimuth", "start_azimuth_deg", "start_azimuth"))
+    los = _first_present(pass_entry, ("los_azimuth_deg", "los_azimuth", "end_azimuth_deg", "end_azimuth"))
+    if aos is None or los is None:
         return "all"
+    return f"{_azimuth_to_cardinal(aos)}_to_{_azimuth_to_cardinal(los)}"
 
-    aos_cardinal = _azimuth_to_cardinal(aos_az)
-    los_cardinal = _azimuth_to_cardinal(los_az)
-    return f"{aos_cardinal}_to_{los_cardinal}"
 
-def pass_matches_direction_filter(pass_entry, satellite_cfg):
-    allowed = _normalize_direction_value(satellite_cfg.get("pass_direction", "all"))
+def _first_present(d: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
+    for k in keys:
+        if k in d and d[k] not in (None, ""):
+            return d[k]
+    return None
 
-    pass_direction = determine_pass_direction(pass_entry)
-    pass_entry["direction"] = pass_direction
 
-    if allowed in (None, "", "all"):
-        return True
+# --- Pass loading / preparation ---------------------------------------------
 
-    return pass_direction == allowed
-
-def load_passes(pass_file):
+def load_passes(pass_file: str) -> List[Dict[str, Any]]:
     if not os.path.exists(pass_file):
         raise FileNotFoundError(f"Pass file not found: {pass_file}")
-
     with open(pass_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     return data.get("passes", [])
 
 
-def build_scheduled_passes(passes, pre_start_seconds, post_stop_seconds):
-    scheduled = []
-
+def build_scheduled_passes(
+    passes: Sequence[Dict[str, Any]],
+    pre_start_seconds: int,
+    post_stop_seconds: int,
+) -> List[Dict[str, Any]]:
+    scheduled: List[Dict[str, Any]] = []
     for p in passes:
-        start = parse_utc(p["start"])
-        end = parse_utc(p["end"])
-
         entry = dict(p)
-        entry["scheduled_start_dt"] = start - timedelta(seconds=pre_start_seconds)
-        entry["scheduled_end_dt"] = end + timedelta(seconds=post_stop_seconds)
+        entry["scheduled_start_dt"] = parse_utc(p["start"]) - timedelta(seconds=pre_start_seconds)
+        entry["scheduled_end_dt"] = parse_utc(p["end"]) + timedelta(seconds=post_stop_seconds)
+        entry["direction"] = determine_pass_direction(entry)  # settle it once, up front
         scheduled.append(entry)
-
     return sorted(scheduled, key=lambda x: x["scheduled_start_dt"])
 
 
-def future_passes_only(scheduled_passes, now):
-    return [p for p in scheduled_passes if p["scheduled_end_dt"] > now]
+def filter_future(
+    scheduled_passes: Sequence[Dict[str, Any]],
+    now: datetime,
+    grace_seconds: int = RECENT_PASS_GRACE_SECONDS,
+) -> List[Dict[str, Any]]:
+    """Keep passes whose scheduled start is still ahead, or started <grace> seconds ago."""
+    cutoff = now - timedelta(seconds=grace_seconds)
+    return [p for p in scheduled_passes if p["scheduled_start_dt"] > cutoff]
 
-def filter_passes_by_satellite_direction(scheduled_passes, satellites_cfg):
-    satellites_by_name = {s["name"]: s for s in satellites_cfg}
-    filtered = []
 
+def filter_by_direction(
+    scheduled_passes: Sequence[Dict[str, Any]],
+    satellites_cfg: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    by_name = {s["name"]: s for s in satellites_cfg}
+    kept: List[Dict[str, Any]] = []
     for p in scheduled_passes:
-        satellite_name = p["satellite"]
-        sat_cfg = satellites_by_name.get(satellite_name)
-
+        sat_cfg = by_name.get(p["satellite"])
         if sat_cfg is None:
-            logger.warning("No satellite config found for pass satellite '%s' - skipping", satellite_name)
+            logger.warning("No satellite config found for pass '%s' – skipping", p["satellite"])
             continue
-
         if not sat_cfg.get("enabled", True):
             continue
 
-        if pass_matches_direction_filter(p, sat_cfg):
-            filtered.append(p)
+        allowed = _normalize_direction(sat_cfg.get("pass_direction", "all"))
+        if allowed in (None, "all"):
+            kept.append(p)
+            continue
+
+        if p["direction"] == allowed:
+            kept.append(p)
         else:
             logger.info(
-                "Skipping pass %s for %s due to direction filter (pass direction: %s, required: %s)",
-                p.get("start", "?"),
-                satellite_name,
-                determine_pass_direction(p),
-                sat_cfg.get("pass_direction", "all"),
+                "Skipping %s pass at %s: direction %s != required %s",
+                p["satellite"], p.get("start", "?"), p["direction"], allowed,
+            )
+    return kept
+
+
+def warn_on_overlaps(passes: Sequence[Dict[str, Any]]) -> None:
+    """Log a warning for any pair of passes whose scheduled windows overlap."""
+    ordered = sorted(passes, key=lambda p: p["scheduled_start_dt"])
+    for a, b in zip(ordered, ordered[1:]):
+        if b["scheduled_start_dt"] < a["scheduled_end_dt"]:
+            logger.warning(
+                "Overlap: %s ends %s, %s starts %s",
+                a["satellite"], isoformat_utc(a["scheduled_end_dt"]),
+                b["satellite"], isoformat_utc(b["scheduled_start_dt"]),
             )
 
-    return filtered
 
-def make_unit_base_name(pass_entry):
-    sat = sanitize_name(pass_entry["satellite"])
-    start = pass_entry["scheduled_start_dt"].strftime("%Y%m%dT%H%M%SZ")
+# --- Unit file generation ----------------------------------------------------
+
+def make_unit_base_name(p: Dict[str, Any]) -> str:
+    sat = sanitize_name(p["satellite"])
+    start = p["scheduled_start_dt"].strftime("%Y%m%dT%H%M%SZ")
     return f"satpi-pass-{start}-{sat}"
 
 
-def make_service_content(pass_entry, receiver_script, python_bin, base_dir, service_user):
+def _service_content(
+    p: Dict[str, Any],
+    receiver_script: str,
+    python_bin: str,
+    base_dir: str,
+    service_user: Optional[str],
+    pass_file_path: str,
+) -> str:
     user_line = f"User={service_user}\n" if service_user else ""
-
-    scheduled_start = isoformat_utc(pass_entry["scheduled_start_dt"])
-    scheduled_end = isoformat_utc(pass_entry["scheduled_end_dt"])
-
-    return f"""[Unit]
-Description=SATPI pass receiver for {pass_entry['satellite']} ({pass_entry.get('direction', 'unknown')}) at {scheduled_start}
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-{user_line}WorkingDirectory={base_dir}
-ExecStart={python_bin} {receiver_script} '{pass_entry["satellite"]}' '{pass_entry["frequency_hz"]}' '{pass_entry["bandwidth_hz"]}' '{pass_entry["pipeline"]}' '{pass_entry["start"]}' '{pass_entry["end"]}' '{scheduled_start}' '{scheduled_end}'
-"""
-
-
-def make_timer_content(service_name, pass_entry):
-    return f"""[Unit]
-Description=SATPI timer for {pass_entry['satellite']} ({pass_entry.get('direction', 'unknown')}) at {isoformat_utc(pass_entry['scheduled_start_dt'])}
-
-[Timer]
-OnCalendar={systemd_time(pass_entry["scheduled_start_dt"])}
-Persistent=true
-Unit={service_name}
-
-[Install]
-WantedBy=timers.target
-"""
+    description = (
+        f"SATPI pass receiver for {p['satellite']} "
+        f"({p.get('direction', 'unknown')}) at {isoformat_utc(p['scheduled_start_dt'])}"
+    )
+    # ExecStart is a systemd-parsed command, not a shell command. Keeping the
+    # arguments minimal and data-free avoids any quoting issues.
+    return (
+        "[Unit]\n"
+        f"Description={description}\n"
+        "After=network-online.target\n"
+        "Wants=network-online.target\n"
+        "\n"
+        "[Service]\n"
+        "Type=oneshot\n"
+        f"{user_line}"
+        f"WorkingDirectory={base_dir}\n"
+        f"ExecStart={python_bin} {receiver_script} --pass-file {pass_file_path}\n"
+    )
 
 
-def write_file(path, content):
-    tmp_path = path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    os.replace(tmp_path, path)
+def _timer_content(service_name: str, p: Dict[str, Any]) -> str:
+    description = (
+        f"SATPI timer for {p['satellite']} "
+        f"({p.get('direction', 'unknown')}) at {isoformat_utc(p['scheduled_start_dt'])}"
+    )
+    return (
+        "[Unit]\n"
+        f"Description={description}\n"
+        "\n"
+        "[Timer]\n"
+        f"OnCalendar={systemd_time(p['scheduled_start_dt'])}\n"
+        "Persistent=true\n"
+        f"Unit={service_name}\n"
+        "\n"
+        "[Install]\n"
+        "WantedBy=timers.target\n"
+    )
 
 
-def cleanup_existing_units(generated_units_dir):
-    existing_services = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.service")))
-    existing_timers = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.timer")))
+def _pass_sidecar(p: Dict[str, Any]) -> Dict[str, Any]:
+    """Serializable view of the pass for the receiver script."""
+    return {
+        "satellite": p["satellite"],
+        "frequency_hz": p["frequency_hz"],
+        "bandwidth_hz": p["bandwidth_hz"],
+        "pipeline": p["pipeline"],
+        "start": p["start"],
+        "end": p["end"],
+        "scheduled_start": isoformat_utc(p["scheduled_start_dt"]),
+        "scheduled_end": isoformat_utc(p["scheduled_end_dt"]),
+        "max_elevation": p.get("max_elevation"),
+        "max_elevation_time": p.get("max_elevation_time"),
+        "aos_azimuth_deg": p.get("aos_azimuth_deg"),
+        "los_azimuth_deg": p.get("los_azimuth_deg"),
+        "direction": p.get("direction"),
+    }
 
-    unit_names = [os.path.basename(p) for p in existing_services + existing_timers]
 
-    if unit_names:
-        logger.info("Stopping and disabling %d existing generated units", len(unit_names))
-        for unit in unit_names:
-            subprocess.run(["sudo", "systemctl", "disable", "--now", unit], capture_output=True, text=True)
-            subprocess.run(["sudo", "systemctl", "reset-failed", unit], capture_output=True, text=True)
+def write_file_atomic(path: str, content: str) -> None:
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
-    for path in existing_services + existing_timers:
-        logger.info("Removing old generated unit file: %s", path)
-        os.remove(path)
+
+# --- Cleanup / create / enable ----------------------------------------------
+
+def cleanup_existing_units(generated_units_dir: str) -> None:
+    services = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.service")))
+    timers = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.timer")))
+
+    unit_names = [os.path.basename(p) for p in services + timers]
+    active_skipped: List[str] = []
+
+    for unit in unit_names:
+        # Never tear down a unit whose service is currently running.
+        service_unit = unit.replace(".timer", ".service")
+        if systemctl_is_active(service_unit):
+            logger.info("Leaving active unit in place: %s", service_unit)
+            active_skipped.append(service_unit)
+            if unit.endswith(".timer"):
+                active_skipped.append(unit)
+            continue
+
+        run(["sudo", "systemctl", "disable", "--now", unit], check=False)
+        run(["sudo", "systemctl", "reset-failed", unit], check=False)
+
+    # Delete only the files we actually tore down.
+    for path in services + timers:
+        name = os.path.basename(path)
+        if name in active_skipped:
+            continue
+        sidecar = os.path.join(generated_units_dir, name.rsplit(".", 1)[0] + ".pass.json")
+        try:
+            os.remove(path)
+            logger.info("Removed old unit file: %s", path)
+        except FileNotFoundError:
+            pass
+        if os.path.exists(sidecar):
+            try:
+                os.remove(sidecar)
+            except OSError:
+                pass
 
 
-def create_units(generated_units_dir, receiver_script, future_passes, python_bin, base_dir, service_user):
-    created = []
-
+def create_units(
+    generated_units_dir: str,
+    receiver_script: str,
+    future_passes: Sequence[Dict[str, Any]],
+    python_bin: str,
+    base_dir: str,
+    service_user: Optional[str],
+) -> List[Tuple[str, str, str, str]]:
+    created: List[Tuple[str, str, str, str]] = []
     for p in future_passes:
-        base_name = make_unit_base_name(p)
-        service_name = f"{base_name}.service"
-        timer_name = f"{base_name}.timer"
+        base = make_unit_base_name(p)
+        service_name = f"{base}.service"
+        timer_name = f"{base}.timer"
 
         service_path = os.path.join(generated_units_dir, service_name)
         timer_path = os.path.join(generated_units_dir, timer_name)
+        pass_path = os.path.join(generated_units_dir, f"{base}.pass.json")
 
-        write_file(
+        # Write the sidecar first – the service is only usable once it exists.
+        write_file_atomic(pass_path, json.dumps(_pass_sidecar(p), indent=2) + "\n")
+
+        write_file_atomic(
             service_path,
-            make_service_content(p, receiver_script, python_bin, base_dir, service_user),
+            _service_content(p, receiver_script, python_bin, base_dir, service_user, pass_path),
         )
-        write_file(timer_path, make_timer_content(service_name, p))
+        write_file_atomic(timer_path, _timer_content(service_name, p))
 
         created.append((service_name, timer_name, service_path, timer_path))
-
     return created
 
 
-def link_and_enable_units(created_units):
-    for service_name, timer_name, service_path, timer_path in created_units:
-        run(["sudo", "systemctl", "link", service_path])
-        run(["sudo", "systemctl", "link", timer_path])
-
-    run(["sudo", "systemctl", "daemon-reload"])
-
-    for service_name, timer_name, service_path, timer_path in created_units:
-        run(["sudo", "systemctl", "enable", "--now", timer_name])
-
-
-def main():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, "config", "config.ini")
-
-    try:
-        config = load_config(config_path)
-    except ConfigError as e:
-        print(f"[schedule] CONFIG ERROR: {e}")
-        return
-
-    setup_logging(config["paths"]["log_dir"])
-
-    paths = config["paths"]
-    pass_file = paths["pass_file"]
-    generated_units_dir = paths["generated_units_dir"]
-    receiver_script = os.path.join(base_dir, "bin", "receive_pass.py")
-    python_bin = paths["python_bin"]
-    service_user = config["systemd"]["service_user"]
-
-    pre_start_seconds = config["scheduling"]["pre_start"]
-    post_stop_seconds = config["scheduling"]["post_stop"]
-
-    if not os.path.exists(receiver_script):
-        raise FileNotFoundError(f"Receiver script not found: {receiver_script}")
-
-    os.makedirs(generated_units_dir, exist_ok=True)
-
-    passes = load_passes(pass_file)
-    logger.info("Loaded %d passes from %s", len(passes), pass_file)
-
-    scheduled_passes = build_scheduled_passes(passes, pre_start_seconds, post_stop_seconds)
-
-    scheduled_passes = filter_passes_by_satellite_direction(
-        scheduled_passes,
-        config["satellites"],
-    )
-    logger.info("Keeping %d passes after satellite direction filtering", len(scheduled_passes))
-
-    now = datetime.now(timezone.utc)
-    future_passes = future_passes_only(scheduled_passes, now)
-    logger.info("Keeping %d future passes", len(future_passes))
-
-    cleanup_existing_units(generated_units_dir)
-
-    if not future_passes:
-        logger.info("No future passes to schedule")
+def link_and_enable_units(created_units: Sequence[Tuple[str, str, str, str]]) -> None:
+    if not created_units:
         run(["sudo", "systemctl", "daemon-reload"])
         return
 
-    created_units = create_units(
-        generated_units_dir,
-        receiver_script,
-        future_passes,
-        python_bin,
-        base_dir,
-        service_user,
+    link_args = ["sudo", "systemctl", "link"]
+    for _, _, service_path, timer_path in created_units:
+        link_args.extend([service_path, timer_path])
+    run(link_args)
+
+    run(["sudo", "systemctl", "daemon-reload"])
+
+    enable_args = ["sudo", "systemctl", "enable", "--now"]
+    for _, timer_name, _, _ in created_units:
+        enable_args.append(timer_name)
+    run(enable_args)
+
+
+# --- Main --------------------------------------------------------------------
+
+def main() -> int:
+    base_dir = Path(__file__).resolve().parent.parent
+    config_path = base_dir / "config" / "config.ini"
+
+    try:
+        config = load_config(str(config_path))
+    except ConfigError as e:
+        print(f"[schedule] CONFIG ERROR: {e}", file=sys.stderr)
+        return 2
+
+    setup_logging(config["paths"]["log_dir"])
+
+    try:
+        paths = config["paths"]
+        pass_file = paths["pass_file"]
+        generated_units_dir = paths["generated_units_dir"]
+        python_bin = paths["python_bin"]
+        receiver_script = str(base_dir / "bin" / "receive_pass.py")
+        service_user = config["systemd"].get("service_user") or None
+        pre_start = int(config["scheduling"]["pre_start"])
+        post_stop = int(config["scheduling"]["post_stop"])
+    except (KeyError, ValueError, ConfigError) as e:
+        logger.error("Config error: %s", e)
+        return 2
+
+    if not os.path.exists(receiver_script):
+        logger.error("Receiver script not found: %s", receiver_script)
+        return 1
+
+    try:
+        ensure_sudo_nopasswd()
+    except RuntimeError as e:
+        logger.error("%s", e)
+        return 1
+
+    os.makedirs(generated_units_dir, exist_ok=True)
+
+    try:
+        passes = load_passes(pass_file)
+    except FileNotFoundError as e:
+        logger.error("%s", e)
+        return 1
+    logger.info("Loaded %d passes from %s", len(passes), pass_file)
+
+    scheduled = build_scheduled_passes(passes, pre_start, post_stop)
+    scheduled = filter_by_direction(scheduled, config["satellites"])
+    logger.info("Keeping %d passes after direction filtering", len(scheduled))
+
+    now = datetime.now(timezone.utc)
+    future = filter_future(scheduled, now)
+    logger.info("Keeping %d future passes", len(future))
+
+    warn_on_overlaps(future)
+
+    try:
+        cleanup_existing_units(generated_units_dir)
+    except subprocess.TimeoutExpired as e:
+        logger.error("systemctl timed out during cleanup: %s", e)
+        return 1
+
+    if not future:
+        logger.info("No future passes to schedule")
+        run(["sudo", "systemctl", "daemon-reload"], check=False)
+        return 0
+
+    created = create_units(
+        generated_units_dir, receiver_script, future, python_bin, base_dir, service_user,
     )
+    logger.info("Created %d timer/service pairs", len(created))
 
-    logger.info("Created %d timer/service pairs", len(created_units))
+    try:
+        link_and_enable_units(created)
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        logger.error("Failed while enabling units: %s", e)
+        return 1
 
-    link_and_enable_units(created_units)
     logger.info("Scheduling complete")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

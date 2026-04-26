@@ -1,488 +1,181 @@
 #!/usr/bin/env python3
-# satpi
-# Executes one scheduled satellite pass from start to finish.
-# This includes preparing the pass-specific output directory, starting SatDump
-# with the configured reception settings, stopping it at the scheduled time,
-# triggering decode and post-processing steps, copying the results and sending
-# an optional notification email.
-# Author: Andreas Horvath
-# Project: Autonomous, Config-driven satellite reception pipeline for Raspberry Pi
+"""satpi – receive_pass
 
-import json
+Executes one scheduled satellite pass from start to finish.
+
+Reads the pass description from a JSON sidecar (written by schedule_passes.py),
+starts SatDump with the configured reception settings, stops it at the
+scheduled time, then triggers decode / DB import / plotting / rclone upload /
+mail notification.
+
+Improvements vs. the previous version:
+  * --pass-file JSON input (no more fragile systemd arg quoting)
+  * Skyfield loaded via local cache, with builtin fallback — no network at AOS
+  * SatDump stdout consumed on a background thread so the clock check isn't
+    blocked by long periods of silence
+  * reception.json is persisted periodically (every N seconds) and at the end,
+    not once per sync line (saves SD-card writes)
+  * SIGTERM/SIGINT handler terminates SatDump cleanly instead of orphaning it
+  * Timeouts on every subprocess call
+  * Consistent normalize_sat_name helper, tolerant TLE lookup
+  * Mail is sent even when rclone upload fails (with the local path)
+  * Postprocessing consolidated into a single function
+
+Author: Andreas Horvath
+Project: Autonomous, config-driven satellite reception pipeline for Raspberry Pi
+"""
+
+from __future__ import annotations
+
 import argparse
+import json
 import logging
 import os
+import queue
 import re
-import sys
-import subprocess
-from pathlib import Path
+import signal
 import socket
+import subprocess
+import sys
+import threading
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
-from skyfield.api import load, wgs84, EarthSatellite
+
+from skyfield.api import EarthSatellite, Loader, wgs84
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from load_config import load_config, ConfigError
+from load_config import ConfigError, load_config  # noqa: E402
+
+
+# --- Constants ---------------------------------------------------------------
 
 SNR_LINE_RE = re.compile(
     r"^\[(?P<time>\d{2}:\d{2}:\d{2}) - (?P<date>\d{2}/\d{2}/\d{4})\].*?"
     r"SNR : (?P<snr>[0-9.]+)dB, Peak SNR: (?P<peak>[0-9.]+)dB"
 )
-
 SYNC_LINE_RE = re.compile(
     r"^\[(?P<time>\d{2}:\d{2}:\d{2}) - (?P<date>\d{2}/\d{2}/\d{4})\].*?"
     r"Viterbi : (?P<viterbi>[A-Z0-9_]+)\s+BER : (?P<ber>[0-9.]+),\s+Deframer : (?P<deframer>[A-Z0-9_]+)"
 )
 
-PROGRESS_LINE_RE = re.compile(
-    r"^\[(?P<time>\d{2}:\d{2}:\d{2}) - (?P<date>\d{2}/\d{2}/\d{4})\].*?"
-    r"Progress (?P<progress>(?:inf|[0-9.]+))%"
+PERSIST_INTERVAL_SECONDS = 10
+SATDUMP_TERMINATION_GRACE = 10         # seconds to wait after SIGTERM before SIGKILL
+MAX_RUNTIME_SAFETY_MARGIN_MIN = 60     # hard cap = scheduled_end + this
+DECODE_TIMEOUT_SECONDS = 15 * 60
+COPY_TIMEOUT_SECONDS = 30 * 60
+MAIL_TIMEOUT_SECONDS = 60
+DB_IMPORT_TIMEOUT_SECONDS = 120
+PLOT_TIMEOUT_SECONDS = 180
+RCLONE_LINK_TIMEOUT_SECONDS = 60
+
+SKYFIELD_DATA_DIR = os.environ.get(
+    "SATPI_SKYFIELD_DATA",
+    os.path.join(os.path.expanduser("~"), ".cache", "satpi", "skyfield"),
 )
 
-_TS = load.timescale()
-_TLE_CACHE = {
-    "path": None,
-    "mtime": None,
-    "satellites": None,
-}
+logger = logging.getLogger("satpi.receive_pass")
+
+# Signal the main loop to stop cleanly on SIGTERM/SIGINT.
+_STOP_EVENT = threading.Event()
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="SATPI pass receiver")
-    parser.add_argument("satellite")
-    parser.add_argument("frequency_hz", type=int)
-    parser.add_argument("bandwidth_hz", type=int)
-    parser.add_argument("pipeline")
-    parser.add_argument("pass_start")
-    parser.add_argument("pass_end")
-    parser.add_argument("scheduled_start")
-    parser.add_argument("scheduled_end")
-    return parser.parse_args()
+# --- Helpers -----------------------------------------------------------------
+
+def normalize_sat_name(name: str) -> str:
+    """Same normalization used across predict_passes / update_tle."""
+    return " ".join(name.strip().upper().replace("-", " ").replace("_", " ").split())
+
+
+def safe_name(value: str) -> str:
+    """Filesystem-safe variant: spaces→underscore, path separators out."""
+    value = value.strip().replace(" ", "_").replace("/", "_").replace(":", "-")
+    return value
 
 
 def parse_utc(ts: str) -> datetime:
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 
-def to_local_dt(utc_timestamp: str, timezone_name: str) -> datetime:
-    utc_dt = parse_utc(utc_timestamp)
-    return utc_dt.astimezone(ZoneInfo(timezone_name))
+def to_local_dt(utc_ts: str, tz_name: str) -> datetime:
+    return parse_utc(utc_ts).astimezone(ZoneInfo(tz_name))
 
 
-def format_local_filename_timestamp(utc_timestamp: str, timezone_name: str) -> str:
-    local_dt = to_local_dt(utc_timestamp, timezone_name)
-    return local_dt.strftime("%Y-%m-%d_%H-%M-%S")
+def format_local_filename_timestamp(utc_ts: str, tz_name: str) -> str:
+    return to_local_dt(utc_ts, tz_name).strftime("%Y-%m-%d_%H-%M-%S")
 
 
-def safe_name(value: str) -> str:
-    value = value.strip().replace(" ", "_").replace("/", "_")
-    value = value.replace(":", "-")
-    return value
-
-
-def setup_logger(log_file: str) -> logging.Logger:
-    logger = logging.getLogger("satpi.receive_pass")
+def setup_logger(log_file: str) -> None:
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    fh = RotatingFileHandler(log_file, maxBytes=5_000_000, backupCount=3)
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    return logger
+    ch = logging.StreamHandler()
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
 
 
-def build_satdump_command(config, args, pass_output_dir):
-    hardware = config["hardware"]
-    satdump_bin = config["paths"]["satdump_bin"]
+# --- CLI ---------------------------------------------------------------------
 
-    sample_rate = str(int(hardware["sample_rate"]))
-    frequency_hz = str(args.frequency_hz)
-    bandwidth_hz = str(int(args.bandwidth_hz))
-    gain_db = str(hardware["gain"])
-    live_pipeline = args.pipeline
-    source_id = str(hardware["source_id"])
-
-    cmd = [
-        satdump_bin,
-        "live",
-        live_pipeline,
-        pass_output_dir,
-        "--source",
-        "rtlsdr",
-        "--source_id",
-        source_id,
-        "--samplerate",
-        sample_rate,
-        "--frequency",
-        frequency_hz,
-        "--bandwidth",
-        bandwidth_hz,
-        "--gain",
-        gain_db,
-    ]
-
-    if hardware["bias_t"]:
-        cmd.append("--bias")
-
-    return cmd, live_pipeline
-
-
-def decode_image(config, logger, args, pass_id, pass_output_dir):
-    decode_cfg = config["decode"]
-    satdump_bin = config["paths"]["satdump_bin"]
-
-    cadu_file = os.path.join(pass_output_dir, f"{args.pipeline}.cadu")
-
-    if not os.path.exists(cadu_file):
-        logger.info("No CADU file found: %s", cadu_file)
-        return False
-
-    cadu_size = os.path.getsize(cadu_file)
-    min_size = decode_cfg["min_cadu_size_bytes"]
-
-    logger.info("CADU file=%s", cadu_file)
-    logger.info("CADU size=%d bytes", cadu_size)
-    logger.info("Minimum CADU size=%d bytes", min_size)
-
-    if cadu_size < min_size:
-        logger.info("CADU file below threshold, skipping decode")
-        return False
-
-    decode_log_path = os.path.join(config["paths"]["log_dir"], f"{pass_id}-decode.log")
-    decode_cmd = [
-        satdump_bin,
-        args.pipeline,
-        "cadu",
-        cadu_file,
-        pass_output_dir,
-    ]
-
-    logger.info("Running decode command: %s", " ".join(decode_cmd))
-    logger.info("decode_log=%s", decode_log_path)
-
-    with open(decode_log_path, "w", encoding="utf-8") as decode_log:
-        proc = subprocess.Popen(
-            decode_cmd,
-            stdout=decode_log,
-            stderr=subprocess.STDOUT,
-            cwd=pass_output_dir,
-        )
-        rc = proc.wait()
-
-    logger.info("Decode exited with return code %s", rc)
-
-    if rc != 0:
-        logger.error("Decode failed")
-        return False
-
-    success_dir = os.path.join(
-        pass_output_dir,
-        decode_cfg["success_dir_relpath"],
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="SATPI pass receiver")
+    p.add_argument(
+        "--pass-file",
+        required=True,
+        help="JSON sidecar with pass parameters (written by schedule_passes.py)",
     )
-
-    if os.path.isdir(success_dir):
-        logger.info("Decode successful, output directory found: %s", success_dir)
-        return True
-
-    logger.info("Decode finished but output directory not found: %s", success_dir)
-    return False
+    return p.parse_args()
 
 
-def copy_output(config, logger, pass_id, pass_output_dir):
-    copy_cfg = config["copytarget"]
-
-    if not copy_cfg["enabled"]:
-        logger.info("Copy target disabled in config")
-        return False, None, None
-
-    pass_name = os.path.basename(pass_output_dir)
-    copy_type = copy_cfg["type"]
-
-    if copy_type != "rclone":
-        logger.error("Unsupported copy target type: %s", copy_type)
-        return False, None, None
-
-    remote = copy_cfg["rclone_remote"]
-    remote_path = copy_cfg["rclone_path"]
-
-    if not remote or not remote_path:
-        logger.error("rclone target not fully configured")
-        return False, None, None
-
-    target = f"{remote}:{remote_path}/{pass_name}"
-    upload_log = os.path.join(config["paths"]["log_dir"], f"{pass_name}-upload.log")
-    cmd = ["rclone", "copy", pass_output_dir, target]
-    logger.info("Running copy command: %s", " ".join(cmd))
-    logger.info("upload_log=%s", upload_log)
-
-    with open(upload_log, "w", encoding="utf-8") as logf:
-        rc = subprocess.call(cmd, stdout=logf, stderr=subprocess.STDOUT)
-
-    logger.info("Copy exited with return code %s", rc)
-
-    if rc != 0:
-        logger.error("Copy failed")
-        return False, target, None
-
-    link = None
-    if copy_cfg["create_link"]:
-        link_cmd = ["rclone", "link", target]
-        logger.info("Running link command: %s", " ".join(link_cmd))
-        try:
-            result = subprocess.run(link_cmd, capture_output=True, text=True, check=True)
-            link = result.stdout.strip() or None
-            logger.info("Link created: %s", link)
-        except subprocess.CalledProcessError as e:
-            logger.warning("Link creation failed")
-            if e.stdout:
-                logger.warning("link stdout: %s", e.stdout.strip())
-            if e.stderr:
-                logger.warning("link stderr: %s", e.stderr.strip())
-
-    return True, target, link
+def load_pass_file(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    required = [
+        "satellite", "frequency_hz", "bandwidth_hz", "pipeline",
+        "start", "end", "scheduled_start", "scheduled_end",
+    ]
+    missing = [k for k in required if k not in data]
+    if missing:
+        raise ValueError(f"pass file {path} missing fields: {missing}")
+    return data
 
 
-def get_host_identity():
-    hostname = socket.gethostname()
-    ip_address = "unknown"
+# --- Skyfield + TLE ----------------------------------------------------------
 
+_SF_LOADER: Optional[Loader] = None
+_SF_TIMESCALE = None
+_TLE_CACHE: Dict[str, Any] = {"path": None, "mtime": None, "satellites": None}
+_TLE_LOOKUP_FAIL_LOGGED = False
+
+
+def _timescale():
+    global _SF_LOADER, _SF_TIMESCALE
+    if _SF_TIMESCALE is not None:
+        return _SF_TIMESCALE
+    os.makedirs(SKYFIELD_DATA_DIR, exist_ok=True)
+    _SF_LOADER = Loader(SKYFIELD_DATA_DIR)
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("8.8.8.8", 80))
-        ip_address = sock.getsockname()[0]
-        sock.close()
+        _SF_TIMESCALE = _SF_LOADER.timescale()
     except Exception:
-        try:
-            ip_address = socket.gethostbyname(hostname)
-        except Exception:
-            pass
-
-    return hostname, ip_address
+        logger.warning("Skyfield timescale download failed; using builtin data.")
+        _SF_TIMESCALE = _SF_LOADER.timescale(builtin=True)
+    return _SF_TIMESCALE
 
 
-def send_notification(config, logger, args, pass_output_dir, link):
-    notify_cfg = config["notify"]
-
-    if not notify_cfg["enabled"]:
-        logger.info("Notifications disabled in config")
-        return True
-
-    mail_to = notify_cfg["mail_to"]
-    mail_bin = config["paths"]["mail_bin"]
-    subject_prefix = notify_cfg["mail_subject_prefix"]
-
-    if not mail_to:
-        logger.error("notify.mail_to not configured")
-        return False
-
-    if not os.path.exists(mail_bin):
-        logger.error("mail binary not found: %s", mail_bin)
-        return False
-
-    cadu_file = os.path.join(pass_output_dir, f"{args.pipeline}.cadu")
-    size_mb = 0
-    if os.path.exists(cadu_file):
-        size_mb = round(os.path.getsize(cadu_file) / (1024 * 1024), 2)
-
-    hostname, ip_address = get_host_identity()
-
-    subject = (
-        f"{subject_prefix} [{hostname} | {ip_address}] "
-        f"{args.satellite} images received, cadu size = {size_mb} MB"
-    )
-
-    if link:
-        body = f"Output link:\n{link}\n"
-    else:
-        body = f"Output directory:\n{pass_output_dir}\n"
-
-    logger.info("Sending notification mail to %s", mail_to)
-
-    mail_data = f"Subject: {subject}\n\n{body}"
-    proc = subprocess.run(
-        [mail_bin, mail_to],
-        input=mail_data,
-        text=True,
-        capture_output=True,
-    )
-
-    logger.info("Mail command exited with return code %s", proc.returncode)
-    if proc.stdout.strip():
-        logger.info("mail stdout: %s", proc.stdout.strip())
-    if proc.stderr.strip():
-        logger.info("mail stderr: %s", proc.stderr.strip())
-
-    if proc.returncode != 0:
-        logger.error("Sending notification mail failed")
-        return False
-
-    return True
-
-
-def postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok):
-    copy_ok, target, link = copy_output(config, logger, pass_id, pass_output_dir)
-    logger.info("copy_ok=%s", copy_ok)
-    logger.info("copy_target=%s", target)
-    logger.info("copy_link=%s", link)
-
-    if not copy_ok:
-        logger.info("Copy failed, skipping notification")
-        return
-
-    if not decode_ok:
-        logger.info("Decode not successful, skipping notification only")
-        return
-
-    notify_ok = send_notification(config, logger, args, pass_output_dir, link)
-    logger.info("notify_ok=%s", notify_ok)
-
-
-def satdump_timestamp_to_utc_iso(date_str: str, time_str: str) -> str:
-    dt = datetime.strptime(f"{date_str} {time_str}", "%d/%m/%Y %H:%M:%S")
-    dt = dt.replace(tzinfo=timezone.utc)
-    return dt.isoformat().replace("+00:00", "Z")
-
-
-def parse_satdump_snr_line(line: str):
-    m = SNR_LINE_RE.search(line)
-    if not m:
-        return None
-
-    return {
-        "timestamp": satdump_timestamp_to_utc_iso(m.group("date"), m.group("time")),
-        "snr_db": float(m.group("snr")),
-        "peak_snr_db": float(m.group("peak")),
-    }
-
-def parse_satdump_sync_line(line: str):
-    m = SYNC_LINE_RE.search(line)
-    if not m:
-        return None
-
-    return {
-        "timestamp": satdump_timestamp_to_utc_iso(m.group("date"), m.group("time")),
-        "ber": float(m.group("ber")),
-        "viterbi_state": m.group("viterbi"),
-        "deframer_state": m.group("deframer"),
-    }
-
-
-def parse_satdump_progress_line(line: str):
-    m = PROGRESS_LINE_RE.search(line)
-    if not m:
-        return None
-
-    raw = m.group("progress")
-    if raw == "inf":
-        return None
-
-    return {
-        "progress_percent": float(raw),
-    }
-
-
-def build_reception_json_header(config, args, pass_id):
-    hardware = config["hardware"]
-    reception_setup = {
-        key: str(value)
-        for key, value in config["reception_setup"].items()
-    }
-
-    return {
-        "pass_id": pass_id,
-        "satellite": args.satellite,
-        "pipeline": args.pipeline,
-        "frequency_hz": int(args.frequency_hz),
-        "bandwidth_hz": int(args.bandwidth_hz),
-        "gain": float(hardware["gain"]),
-        "source_id": str(hardware["source_id"]),
-        "bias_t": bool(hardware["bias_t"]),
-        "pass_start": args.pass_start,
-        "pass_end": args.pass_end,
-        "scheduled_start": args.scheduled_start,
-        "scheduled_end": args.scheduled_end,
-        "reception_setup": reception_setup,
-        "samples": [],
-    }
-
-def write_json_atomic(target_path: str, payload: dict):
-    target = Path(target_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = target.with_suffix(target.suffix + ".tmp")
-
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-        f.write("\n")
-
-    os.replace(tmp_path, target)
-
-
-def interpolate_pass_timestamp(pass_start_utc: str, pass_end_utc: str, progress_percent: float) -> str:
-    start_dt = parse_utc(pass_start_utc)
-    end_dt = parse_utc(pass_end_utc)
-
-    if progress_percent < 0:
-        progress_percent = 0.0
-    if progress_percent > 100:
-        progress_percent = 100.0
-
-    fraction = progress_percent / 100.0
-    sample_dt = start_dt + (end_dt - start_dt) * fraction
-    return sample_dt.isoformat().replace("+00:00", "Z")
-
-
-def uniquify_sample_timestamp(sample_timestamp: str, seen_timestamps: dict[str, int]) -> str:
-    count = seen_timestamps.get(sample_timestamp, 0)
-    seen_timestamps[sample_timestamp] = count + 1
-
-    if count == 0:
-        return sample_timestamp
-
-    dt = parse_utc(sample_timestamp) + timedelta(milliseconds=count)
-    return dt.isoformat().replace("+00:00", "Z")
-
-
-def maybe_build_sample(
-    config,
-    current_radio_state: dict,
-    sync_data: dict,
-    satellite_name: str,
-    sample_timestamp_override: str | None = None,
-):
-    if current_radio_state.get("snr_db") is None:
-        return None
-    if current_radio_state.get("peak_snr_db") is None:
-        return None
-
-    sample_timestamp = sample_timestamp_override or sync_data["timestamp"]
-
-    azimuth_deg, elevation_deg = compute_az_el(config, sample_timestamp, satellite_name)
-
-    return {
-        "timestamp": sample_timestamp,
-        "snr_db": current_radio_state["snr_db"],
-        "peak_snr_db": current_radio_state["peak_snr_db"],
-        "ber": sync_data["ber"],
-        "viterbi_state": sync_data["viterbi_state"],
-        "deframer_state": sync_data["deframer_state"],
-        "azimuth_deg": azimuth_deg,
-        "elevation_deg": elevation_deg,
-    }
-
-def _load_satellites_from_tle_file(tle_path: str):
+def _load_tle_satellites(tle_path: str) -> Dict[str, EarthSatellite]:
     mtime = os.path.getmtime(tle_path)
-
     if (
         _TLE_CACHE["path"] == tle_path
         and _TLE_CACHE["mtime"] == mtime
@@ -491,229 +184,182 @@ def _load_satellites_from_tle_file(tle_path: str):
         return _TLE_CACHE["satellites"]
 
     with open(tle_path, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()]
+        lines = [ln.strip() for ln in f if ln.strip()]
 
-    satellites = {}
+    ts = _timescale()
+    satellites: Dict[str, EarthSatellite] = {}
     i = 0
     while i + 2 < len(lines):
-        name = lines[i]
-        line1 = lines[i + 1]
-        line2 = lines[i + 2]
-
-        if line1.startswith("1 ") and line2.startswith("2 "):
-            satellites[name] = EarthSatellite(line1, line2, name, _TS)
+        name, l1, l2 = lines[i], lines[i + 1], lines[i + 2]
+        if l1.startswith("1 ") and l2.startswith("2 "):
+            satellites[normalize_sat_name(name)] = EarthSatellite(l1, l2, name, ts)
             i += 3
         else:
             i += 1
 
-    _TLE_CACHE["path"] = tle_path
-    _TLE_CACHE["mtime"] = mtime
-    _TLE_CACHE["satellites"] = satellites
+    _TLE_CACHE.update(path=tle_path, mtime=mtime, satellites=satellites)
     return satellites
 
 
-def _resolve_satellite_from_tle(satellites: dict, satellite_name: str):
-    if satellite_name in satellites:
-        return satellites[satellite_name]
-
-    normalized_target = safe_name(satellite_name).upper()
-
-    for name, sat in satellites.items():
-        if safe_name(name).upper() == normalized_target:
-            return sat
-
-    raise ValueError(f"Satellite not found in TLE file: {satellite_name}")
-
-
-def compute_az_el(config, sample_timestamp_utc: str, satellite_name: str):
-    tle_file = config["paths"]["tle_file"]
-
-    satellites = _load_satellites_from_tle_file(tle_file)
-    satellite = _resolve_satellite_from_tle(satellites, satellite_name)
-
-    qth = config["qth"]
-    observer = wgs84.latlon(
-        qth["latitude"],
-        qth["longitude"],
-        elevation_m=qth["altitude"],
-    )
-
-    dt = parse_utc(sample_timestamp_utc)
-    t = _TS.from_datetime(dt)
-
-    difference = satellite - observer
-    topocentric = difference.at(t)
-    alt, az, _distance = topocentric.altaz()
-
-    return float(round(az.degrees, 3)), float(round(alt.degrees, 3))
-
-
-def render_reception_plots(base_dir, logger, config, pass_id: str):
-    plot_script = os.path.join(base_dir, "bin", "plot_receptions.py")
-    python_bin = config["paths"]["python_bin"]
-
-    if not os.path.exists(plot_script):
-        logger.warning("plot_receptions.py not found: %s", plot_script)
-        return False
-
-    cmd = [
-        python_bin,
-        plot_script,
-        "--pass-id",
-        pass_id,
-    ]
-
-    logger.info("Running plot command: %s", " ".join(cmd))
-
-    result = subprocess.run(
-        cmd,
-        text=True,
-        capture_output=True,
-        cwd=base_dir,
-    )
-
-    logger.info("plot_receptions.py exited with return code %s", result.returncode)
-    if result.stdout.strip():
-        logger.info("plot stdout: %s", result.stdout.strip())
-    if result.stderr.strip():
-        logger.info("plot stderr: %s", result.stderr.strip())
-
-    if result.returncode != 0:
-        logger.warning("Plot generation failed")
-        return False
-
-    return True
-
-def import_reception_to_db(config, logger, reception_json_path: str) -> bool:
-    if not os.path.exists(reception_json_path):
-        logger.warning("reception JSON not found, cannot import to DB: %s", reception_json_path)
-        return False
-
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    importer_path = os.path.join(base_dir, "bin", "import_reception_to_db.py")
-    python_bin = config["paths"]["python_bin"]
-
-    if not os.path.exists(importer_path):
-        logger.warning("DB importer script not found: %s", importer_path)
-        return False
-
-    cmd = [
-        python_bin,
-        importer_path,
-        reception_json_path,
-    ]
-
-    logger.info("Importing reception JSON into DB: %s", reception_json_path)
-    logger.info("Running DB import command: %s", " ".join(cmd))
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=base_dir,
-    )
-
-    if result.stdout:
-        logger.info("DB import stdout: %s", result.stdout.strip())
-    if result.stderr:
-        logger.warning("DB import stderr: %s", result.stderr.strip())
-
-    if result.returncode != 0:
-        logger.error("DB import failed with return code %s", result.returncode)
-        return False
-
-    logger.info("DB import completed successfully")
-    return True
-
-
-def main():
-    args = parse_args()
-
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, "config", "config.ini")
-
+def compute_az_el(
+    config: Dict[str, Any],
+    sample_ts_utc: str,
+    satellite_name: str,
+) -> Tuple[Optional[float], Optional[float]]:
+    """Return (az, el) in degrees, or (None, None) if lookup fails."""
+    global _TLE_LOOKUP_FAIL_LOGGED
     try:
-        config = load_config(config_path)
-    except ConfigError as e:
-        print(f"[receive_pass] CONFIG ERROR: {e}")
-        return 1
+        sats = _load_tle_satellites(config["paths"]["tle_file"])
+        sat = sats.get(normalize_sat_name(satellite_name))
+        if sat is None:
+            if not _TLE_LOOKUP_FAIL_LOGGED:
+                logger.warning("Satellite not found in TLE: %s", satellite_name)
+                _TLE_LOOKUP_FAIL_LOGGED = True
+            return None, None
 
-    log_dir = config["paths"]["log_dir"]
-    output_dir = config["paths"]["output_dir"]
-    satdump_bin = config["paths"]["satdump_bin"]
+        qth = config["qth"]
+        observer = wgs84.latlon(qth["latitude"], qth["longitude"], elevation_m=qth["altitude"])
+        t = _timescale().from_datetime(parse_utc(sample_ts_utc))
+        alt, az, _ = (sat - observer).at(t).altaz()
+        return float(round(az.degrees, 3)), float(round(alt.degrees, 3))
+    except Exception as e:
+        if not _TLE_LOOKUP_FAIL_LOGGED:
+            logger.warning("Az/El lookup failed, continuing without geometry: %s", e)
+            _TLE_LOOKUP_FAIL_LOGGED = True
+        return None, None
 
-    os.makedirs(log_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
 
-    timezone_name = config["station"]["timezone"]
-    local_pass_start = format_local_filename_timestamp(args.pass_start, timezone_name)
+# --- SatDump command ---------------------------------------------------------
 
-    pass_id = f"{local_pass_start}_{safe_name(args.satellite)}"
-    pass_output_dir = os.path.join(output_dir, pass_id)
-    os.makedirs(pass_output_dir, exist_ok=True)
+def build_satdump_command(config: Dict[str, Any], pass_data: Dict[str, Any], pass_output_dir: str) -> List[str]:
+    hw = config["hardware"]
+    cmd = [
+        config["paths"]["satdump_bin"],
+        "live",
+        pass_data["pipeline"],
+        pass_output_dir,
+        "--source", "rtlsdr",
+        "--source_id", str(hw["source_id"]),
+        "--samplerate", str(int(hw["sample_rate"])),
+        "--frequency", str(int(pass_data["frequency_hz"])),
+        "--bandwidth", str(int(pass_data["bandwidth_hz"])),
+        "--gain", str(hw["gain"]),
+    ]
+    if hw["bias_t"]:
+        cmd.append("--bias")
+    return cmd
 
-    log_file = os.path.join(log_dir, f"{pass_id}-receive_pass.log")
-    logger = setup_logger(log_file)
 
-    logger.info("receive_pass.py started")
-    logger.info("satellite=%s", args.satellite)
-    logger.info("frequency_hz=%s", args.frequency_hz)
-    logger.info("bandwidth_hz=%s", args.bandwidth_hz)
-    logger.info("pipeline=%s", args.pipeline)
-    logger.info("pass_start=%s", args.pass_start)
-    logger.info("pass_end=%s", args.pass_end)
-    logger.info("scheduled_start=%s", args.scheduled_start)
-    logger.info("scheduled_end=%s", args.scheduled_end)
-    logger.info("local_pass_start=%s", to_local_dt(args.pass_start, timezone_name).strftime("%Y-%m-%d %H:%M:%S %Z"))
-    logger.info("local_pass_end=%s", to_local_dt(args.pass_end, timezone_name).strftime("%Y-%m-%d %H:%M:%S %Z"))
-    logger.info("local_scheduled_start=%s", to_local_dt(args.scheduled_start, timezone_name).strftime("%Y-%m-%d %H:%M:%S %Z"))
-    logger.info("local_scheduled_end=%s", to_local_dt(args.scheduled_end, timezone_name).strftime("%Y-%m-%d %H:%M:%S %Z"))
-    logger.info("pass_output_dir=%s", pass_output_dir)
-    logger.info("hostname=%s", os.uname().nodename)
-    logger.info("user=%s", os.environ.get("USER", "unknown"))
-    logger.info("cwd=%s", os.getcwd())
+# --- Log parsing -------------------------------------------------------------
 
-    hardware = config["hardware"]
-    copytarget = config["copytarget"]
+def _satdump_ts_to_iso(date_str: str, time_str: str) -> str:
+    dt = datetime.strptime(f"{date_str} {time_str}", "%d/%m/%Y %H:%M:%S")
+    return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
-    logger.info("config.hardware.source_id=%s", hardware["source_id"])
-    logger.info("config.hardware.gain=%s", hardware["gain"])
-    logger.info("config.hardware.sample_rate=%s", hardware["sample_rate"])
-    logger.info("config.hardware.bias_t=%s", hardware["bias_t"])
 
-    logger.info("config.paths.satdump_bin=%s", satdump_bin)
-    logger.info("config.copytarget.enabled=%s", copytarget["enabled"])
-    logger.info("config.copytarget.type=%s", copytarget["type"])
-
-    if not os.path.exists(satdump_bin):
-        logger.error("SatDump binary not found: %s", satdump_bin)
-        return 1
-
-    reception_json_path = os.path.join(pass_output_dir, "reception.json")
-
-    reception_payload = build_reception_json_header(config, args, pass_id)
-    write_json_atomic(reception_json_path, reception_payload)
-
-    cmd, live_pipeline = build_satdump_command(config, args, pass_output_dir)
-
-    logger.info("using live pipeline=%s", live_pipeline)
-
-    satdump_log_path = os.path.join(log_dir, f"{pass_id}-satdump.log")
-
-    logger.info("satdump_log=%s", satdump_log_path)
-    logger.info("reception_json=%s", reception_json_path)
-    logger.info("running SatDump command: %s", " ".join(cmd))
-
-    current_radio_state = {
-        "snr_db": None,
-        "peak_snr_db": None,
+def parse_snr_line(line: str) -> Optional[Dict[str, Any]]:
+    m = SNR_LINE_RE.search(line)
+    if not m:
+        return None
+    return {
+        "timestamp": _satdump_ts_to_iso(m.group("date"), m.group("time")),
+        "snr_db": float(m.group("snr")),
+        "peak_snr_db": float(m.group("peak")),
     }
 
-    scheduled_end_dt = parse_utc(args.scheduled_end)
-    stopped_by_scheduler = False
 
-    with open(satdump_log_path, "w", encoding="utf-8") as satdump_log:
-        process = subprocess.Popen(
+def parse_sync_line(line: str) -> Optional[Dict[str, Any]]:
+    m = SYNC_LINE_RE.search(line)
+    if not m:
+        return None
+    return {
+        "timestamp": _satdump_ts_to_iso(m.group("date"), m.group("time")),
+        "ber": float(m.group("ber")),
+        "viterbi_state": m.group("viterbi"),
+        "deframer_state": m.group("deframer"),
+    }
+
+
+# --- Reception JSON ----------------------------------------------------------
+
+def build_reception_header(
+    config: Dict[str, Any], pass_data: Dict[str, Any], pass_id: str
+) -> Dict[str, Any]:
+    hw = config["hardware"]
+    return {
+        "pass_id": pass_id,
+        "satellite": pass_data["satellite"],
+        "pipeline": pass_data["pipeline"],
+        "frequency_hz": int(pass_data["frequency_hz"]),
+        "bandwidth_hz": int(pass_data["bandwidth_hz"]),
+        "gain": float(hw["gain"]),
+        "source_id": str(hw["source_id"]),
+        "bias_t": bool(hw["bias_t"]),
+        "pass_start": pass_data["start"],
+        "pass_end": pass_data["end"],
+        "scheduled_start": pass_data["scheduled_start"],
+        "scheduled_end": pass_data["scheduled_end"],
+        "max_elevation": pass_data.get("max_elevation"),
+        "aos_azimuth_deg": pass_data.get("aos_azimuth_deg"),
+        "los_azimuth_deg": pass_data.get("los_azimuth_deg"),
+        "direction": pass_data.get("direction"),
+        "reception_setup": dict(config["reception_setup"]),
+        "samples": [],
+    }
+
+
+def write_json_atomic(target_path: str, payload: Dict[str, Any]) -> None:
+    target = Path(target_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, target)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
+# --- SatDump stdout reader (thread) -----------------------------------------
+
+def _reader_thread(stream, q: "queue.Queue[Optional[str]]") -> None:
+    try:
+        for line in iter(stream.readline, ""):
+            q.put(line)
+    finally:
+        q.put(None)  # sentinel: EOF
+
+
+# --- Run SatDump with periodic persist + clock cap --------------------------
+
+def run_satdump(
+    config: Dict[str, Any],
+    pass_data: Dict[str, Any],
+    pass_output_dir: str,
+    reception_json_path: str,
+    reception_payload: Dict[str, Any],
+    satdump_log_path: str,
+    hard_deadline: datetime,
+) -> Tuple[int, bool]:
+    """Run SatDump, consume stdout in a thread, stop at scheduled_end.
+
+    Returns (return_code, stopped_by_scheduler).
+    """
+    cmd = build_satdump_command(config, pass_data, pass_output_dir)
+    logger.info("Running SatDump: %s", " ".join(cmd))
+
+    stopped_by_scheduler = False
+    current_state = {"snr_db": None, "peak_snr_db": None}
+    last_persist = time.monotonic()
+    samples = reception_payload["samples"]
+
+    with open(satdump_log_path, "w", encoding="utf-8") as sd_log:
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -721,83 +367,489 @@ def main():
             bufsize=1,
             cwd=pass_output_dir,
         )
+        logger.info("SatDump started with pid=%s", proc.pid)
 
-        logger.info("SatDump started with pid=%s", process.pid)
+        q: "queue.Queue[Optional[str]]" = queue.Queue(maxsize=10000)
+        reader = threading.Thread(target=_reader_thread, args=(proc.stdout, q), daemon=True)
+        reader.start()
 
-        while True:
-            line = process.stdout.readline()
+        try:
+            while True:
+                if _STOP_EVENT.is_set():
+                    logger.info("Stop event received — terminating SatDump")
+                    stopped_by_scheduler = True
+                    break
 
-            if line:
-                satdump_log.write(line)
-                satdump_log.flush()
+                now = datetime.now(timezone.utc)
+                if now >= hard_deadline:
+                    logger.info("Reached scheduled_end, terminating SatDump")
+                    stopped_by_scheduler = True
+                    break
 
-                snr_data = parse_satdump_snr_line(line)
-                if snr_data:
-                    current_radio_state["snr_db"] = snr_data["snr_db"]
-                    current_radio_state["peak_snr_db"] = snr_data["peak_snr_db"]
-
-                sync_data = parse_satdump_sync_line(line)
-                if sync_data:
-                    sample = maybe_build_sample(config, current_radio_state, sync_data, args.satellite)
-                    if sample is not None:
-                        reception_payload["samples"].append(sample)
-                        write_json_atomic(reception_json_path, reception_payload)
-                        logger.info("reception_json samples count=%s", len(reception_payload["samples"]))
-
-            return_code = process.poll()
-            if return_code is not None:
-                break
-
-            now = datetime.now(timezone.utc)
-            if now >= scheduled_end_dt:
-                logger.info("Reached scheduled_end, stopping SatDump")
-                stopped_by_scheduler = True
-                process.terminate()
                 try:
-                    return_code = process.wait(timeout=10)
+                    line = q.get(timeout=1.0)
+                except queue.Empty:
+                    line = ""  # no output this second
+
+                if line is None:
+                    # Reader hit EOF
+                    break
+
+                if line:
+                    sd_log.write(line)
+
+                    snr = parse_snr_line(line)
+                    if snr:
+                        current_state["snr_db"] = snr["snr_db"]
+                        current_state["peak_snr_db"] = snr["peak_snr_db"]
+
+                    sync = parse_sync_line(line)
+                    if sync and current_state["snr_db"] is not None:
+                        az, el = compute_az_el(config, sync["timestamp"], pass_data["satellite"])
+                        samples.append({
+                            "timestamp": sync["timestamp"],
+                            "snr_db": current_state["snr_db"],
+                            "peak_snr_db": current_state["peak_snr_db"],
+                            "ber": sync["ber"],
+                            "viterbi_state": sync["viterbi_state"],
+                            "deframer_state": sync["deframer_state"],
+                            "azimuth_deg": az,
+                            "elevation_deg": el,
+                        })
+
+                if proc.poll() is not None and q.empty():
+                    break
+
+                # Periodic persist
+                if time.monotonic() - last_persist >= PERSIST_INTERVAL_SECONDS:
+                    write_json_atomic(reception_json_path, reception_payload)
+                    last_persist = time.monotonic()
+
+            # Graceful termination.
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    rc = proc.wait(timeout=SATDUMP_TERMINATION_GRACE)
                 except subprocess.TimeoutExpired:
                     logger.warning("SatDump did not terminate in time, killing it")
-                    process.kill()
-                    return_code = process.wait()
-                break
+                    proc.kill()
+                    rc = proc.wait()
+            else:
+                rc = proc.returncode
 
-            time.sleep(1)
+            # Drain any queued output before closing.
+            while True:
+                try:
+                    line = q.get_nowait()
+                except queue.Empty:
+                    break
+                if line is None or not line:
+                    continue
+                sd_log.write(line)
+        except BaseException:
+            # Make absolutely sure SatDump doesn't outlive us.
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
+            raise
 
-    logger.info("SatDump exited with return code %s", return_code)
+    # Final persist at end.
+    write_json_atomic(reception_json_path, reception_payload)
+    return rc, stopped_by_scheduler
 
-    if stopped_by_scheduler and return_code in (-15, 0):
-        logger.info("SatDump was stopped intentionally by scheduler")
 
-        db_import_ok = import_reception_to_db(config, logger, reception_json_path)
-        logger.info("db_import_ok=%s", db_import_ok)
+# --- Postprocessing ----------------------------------------------------------
 
-        plots_ok = render_reception_plots(base_dir, logger, config, pass_id)
-        logger.info("plots_ok=%s", plots_ok)
+def _run_with_timeout(
+    cmd: List[str],
+    *,
+    timeout: int,
+    log_path: Optional[str] = None,
+    cwd: Optional[str] = None,
+) -> int:
+    logger.info("Running: %s", " ".join(cmd))
+    try:
+        if log_path:
+            with open(log_path, "w", encoding="utf-8") as lf:
+                proc = subprocess.run(
+                    cmd, stdout=lf, stderr=subprocess.STDOUT, timeout=timeout, cwd=cwd,
+                )
+        else:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+            )
+            if proc.stdout and proc.stdout.strip():
+                logger.info("stdout: %s", proc.stdout.strip())
+            if proc.stderr and proc.stderr.strip():
+                (logger.debug if proc.returncode == 0 else logger.warning)(
+                    "stderr: %s", proc.stderr.strip()
+                )
+    except subprocess.TimeoutExpired:
+        logger.error("Command timed out after %ds: %s", timeout, " ".join(cmd))
+        return 124
+    logger.info("Exit code: %s", proc.returncode)
+    return proc.returncode
 
-        decode_ok = decode_image(config, logger, args, pass_id, pass_output_dir)
-        logger.info("decode_ok=%s", decode_ok)
 
-        postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok)
-        logger.info("receive_pass.py finished successfully")
-        return 0
+def decode_image(
+    config: Dict[str, Any],
+    pass_data: Dict[str, Any],
+    pass_id: str,
+    pass_output_dir: str,
+) -> bool:
+    decode_cfg = config["decode"]
+    cadu = os.path.join(pass_output_dir, f"{pass_data['pipeline']}.cadu")
+    if not os.path.exists(cadu):
+        logger.info("No CADU file: %s", cadu)
+        return False
 
-    if return_code != 0:
-        logger.error("SatDump failed")
-        return return_code
+    size = os.path.getsize(cadu)
+    logger.info("CADU %s (%d bytes, min=%d)", cadu, size, decode_cfg["min_cadu_size_bytes"])
+    if size < decode_cfg["min_cadu_size_bytes"]:
+        logger.info("CADU below threshold — skipping decode")
+        return False
 
-    db_import_ok = import_reception_to_db(config, logger, reception_json_path)
-    logger.info("db_import_ok=%s", db_import_ok)
+    log_path = os.path.join(config["paths"]["log_dir"], f"{pass_id}-decode.log")
+    rc = _run_with_timeout(
+        [config["paths"]["satdump_bin"], pass_data["pipeline"], "cadu", cadu, pass_output_dir],
+        timeout=DECODE_TIMEOUT_SECONDS,
+        log_path=log_path,
+        cwd=pass_output_dir,
+    )
+    if rc != 0:
+        logger.error("Decode failed")
+        return False
 
-    plots_ok = render_reception_plots(base_dir, logger, config, pass_id)
-    logger.info("plots_ok=%s", plots_ok)
+    success_dir = os.path.join(pass_output_dir, decode_cfg["success_dir_relpath"])
+    if os.path.isdir(success_dir):
+        logger.info("Decode successful: %s", success_dir)
+        return True
+    logger.info("Decode finished but success dir missing: %s", success_dir)
+    return False
 
-    decode_ok = decode_image(config, logger, args, pass_id, pass_output_dir)
+
+def copy_output(
+    config: Dict[str, Any], pass_id: str, pass_output_dir: str,
+) -> Tuple[bool, Optional[str], Optional[str]]:
+    cfg = config["copytarget"]
+    if not cfg["enabled"]:
+        logger.info("Copy target disabled")
+        return False, None, None
+    if cfg["type"] != "rclone":
+        logger.error("Unsupported copy type: %s", cfg["type"])
+        return False, None, None
+
+    remote, remote_path = cfg["rclone_remote"], cfg["rclone_path"]
+    if not remote or not remote_path:
+        logger.error("rclone target not fully configured")
+        return False, None, None
+
+    pass_name = os.path.basename(pass_output_dir)
+    target = f"{remote}:{remote_path}/{pass_name}"
+    upload_log = os.path.join(config["paths"]["log_dir"], f"{pass_id}-upload.log")
+
+    rc = _run_with_timeout(
+        ["rclone", "copy", pass_output_dir, target],
+        timeout=COPY_TIMEOUT_SECONDS,
+        log_path=upload_log,
+    )
+    if rc != 0:
+        logger.error("Copy failed (rc=%s)", rc)
+        return False, target, None
+
+    link: Optional[str] = None
+    if cfg["create_link"]:
+        try:
+            result = subprocess.run(
+                ["rclone", "link", target], capture_output=True, text=True,
+                check=True, timeout=RCLONE_LINK_TIMEOUT_SECONDS,
+            )
+            link = result.stdout.strip() or None
+            logger.info("Link: %s", link)
+        except subprocess.TimeoutExpired:
+            logger.warning("rclone link timed out")
+        except subprocess.CalledProcessError as e:
+            logger.warning("Link creation failed")
+            if e.stdout:
+                logger.warning("stdout: %s", e.stdout.strip())
+            if e.stderr:
+                logger.warning("stderr: %s", e.stderr.strip())
+
+    return True, target, link
+
+
+def _host_identity() -> Tuple[str, str]:
+    hostname = socket.gethostname()
+    ip = "unknown"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        try:
+            ip = socket.gethostbyname(hostname)
+        except Exception:
+            pass
+    return hostname, ip
+
+
+def _reception_summary(reception_payload: Dict[str, Any]) -> str:
+    samples = reception_payload.get("samples", [])
+    synced = [s for s in samples if s.get("deframer_state") == "SYNCED"]
+    lines = [
+        f"Satellite:       {reception_payload['satellite']}",
+        f"Direction:       {reception_payload.get('direction', '?')}",
+        f"Max elevation:   {reception_payload.get('max_elevation', '?')}°",
+        f"Samples:         {len(samples)} total, {len(synced)} synced",
+    ]
+    if samples:
+        snrs = [s["snr_db"] for s in samples if s.get("snr_db") is not None]
+        if snrs:
+            snrs_sorted = sorted(snrs)
+            median = snrs_sorted[len(snrs_sorted) // 2]
+            lines.append(f"SNR median/peak: {median:.1f} / {max(snrs):.1f} dB")
+    return "\n".join(lines)
+
+
+def send_notification(
+    config: Dict[str, Any],
+    pass_data: Dict[str, Any],
+    pass_output_dir: str,
+    reception_payload: Dict[str, Any],
+    copy_target: Optional[str],
+    link: Optional[str],
+    copy_ok: bool,
+) -> bool:
+    ncfg = config["notify"]
+    if not ncfg["enabled"]:
+        logger.info("Notifications disabled")
+        return True
+    if not ncfg.get("mail_to"):
+        logger.error("notify.mail_to not configured")
+        return False
+
+    mail_bin = config["paths"]["mail_bin"]
+    if not os.path.exists(mail_bin):
+        logger.error("mail binary not found: %s", mail_bin)
+        return False
+
+    cadu = os.path.join(pass_output_dir, f"{pass_data['pipeline']}.cadu")
+    size_mb = round(os.path.getsize(cadu) / (1024 * 1024), 2) if os.path.exists(cadu) else 0
+
+    hostname, ip = _host_identity()
+    status = "ok" if copy_ok else "copy-FAILED"
+    subject = (
+        f"{ncfg['mail_subject_prefix']} [{hostname} | {ip}] "
+        f"{pass_data['satellite']} [{status}], CADU={size_mb} MB"
+    )
+
+    body_parts = [_reception_summary(reception_payload), ""]
+    if link:
+        body_parts += ["Output link:", link]
+    elif copy_ok:
+        body_parts += ["Copy target:", copy_target or "(unknown)"]
+    else:
+        body_parts += [
+            "Upload failed — files stayed local at:",
+            pass_output_dir,
+        ]
+    body = "\n".join(body_parts) + "\n"
+
+    mail_data = f"Subject: {subject}\n\n{body}"
+    try:
+        proc = subprocess.run(
+            [mail_bin, ncfg["mail_to"]],
+            input=mail_data, text=True, capture_output=True,
+            timeout=MAIL_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        logger.error("Mail send timed out")
+        return False
+
+    if proc.returncode != 0:
+        logger.error("Mail failed (rc=%s)", proc.returncode)
+        if proc.stderr.strip():
+            logger.error("mail stderr: %s", proc.stderr.strip())
+        return False
+    logger.info("Notification mail sent to %s", ncfg["mail_to"])
+    return True
+
+
+def postprocess(
+    config: Dict[str, Any],
+    pass_data: Dict[str, Any],
+    pass_id: str,
+    pass_output_dir: str,
+    reception_json_path: str,
+    reception_payload: Dict[str, Any],
+    base_dir: str,
+) -> None:
+    # DB import
+    try:
+        rc = _run_with_timeout(
+            [config["paths"]["python_bin"],
+             os.path.join(base_dir, "bin", "import_reception_to_db.py"),
+             reception_json_path],
+            timeout=DB_IMPORT_TIMEOUT_SECONDS,
+            cwd=base_dir,
+        )
+        logger.info("db_import_ok=%s", rc == 0)
+    except FileNotFoundError as e:
+        logger.warning("DB importer not found: %s", e)
+
+    # Plots
+    plot_script = os.path.join(base_dir, "bin", "plot_receptions.py")
+    if os.path.exists(plot_script):
+        rc = _run_with_timeout(
+            [config["paths"]["python_bin"], plot_script, "--pass-id", pass_id],
+            timeout=PLOT_TIMEOUT_SECONDS,
+            cwd=base_dir,
+        )
+        logger.info("plots_ok=%s", rc == 0)
+    else:
+        logger.warning("plot_receptions.py not found: %s", plot_script)
+
+    # Decode
+    decode_ok = decode_image(config, pass_data, pass_id, pass_output_dir)
     logger.info("decode_ok=%s", decode_ok)
 
-    postprocess_output(config, logger, args, pass_id, pass_output_dir, decode_ok)
-    logger.info("receive_pass.py finished successfully")
+    # Copy
+    copy_ok, target, link = copy_output(config, pass_id, pass_output_dir)
+    logger.info("copy_ok=%s target=%s link=%s", copy_ok, target, link)
 
+    # Notify — even if copy failed, the operator wants to know.
+    if decode_ok:
+        notify_ok = send_notification(
+            config, pass_data, pass_output_dir, reception_payload,
+            target, link, copy_ok,
+        )
+        logger.info("notify_ok=%s", notify_ok)
+    else:
+        logger.info("Skipping notification — decode not successful")
+
+
+# --- Signals -----------------------------------------------------------------
+
+def _install_signal_handlers() -> None:
+    def handler(signum, _frame):
+        logger.warning("Received signal %s — requesting clean stop", signum)
+        _STOP_EVENT.set()
+    signal.signal(signal.SIGTERM, handler)
+    signal.signal(signal.SIGINT, handler)
+
+
+# --- Main --------------------------------------------------------------------
+
+def main() -> int:
+    args = parse_args()
+
+    base_dir = str(Path(__file__).resolve().parent.parent)
+    config_path = os.path.join(base_dir, "config", "config.ini")
+
+    try:
+        config = load_config(config_path)
+    except ConfigError as e:
+        print(f"[receive_pass] CONFIG ERROR: {e}", file=sys.stderr)
+        return 2
+
+    log_dir = config["paths"]["log_dir"]
+    output_dir = config["paths"]["output_dir"]
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+
+    try:
+        pass_data = load_pass_file(args.pass_file)
+    except (OSError, ValueError, json.JSONDecodeError) as e:
+        print(f"[receive_pass] PASS FILE ERROR: {e}", file=sys.stderr)
+        return 2
+
+    tz = config["station"]["timezone"]
+    local_start = format_local_filename_timestamp(pass_data["start"], tz)
+    pass_id = f"{local_start}_{safe_name(pass_data['satellite'])}"
+    pass_output_dir = os.path.join(output_dir, pass_id)
+    os.makedirs(pass_output_dir, exist_ok=True)
+
+    setup_logger(os.path.join(log_dir, f"{pass_id}-receive_pass.log"))
+    _install_signal_handlers()
+
+    logger.info("receive_pass.py started")
+    logger.info("pass_file=%s", args.pass_file)
+    logger.info("pass_id=%s", pass_id)
+    logger.info("satellite=%s freq=%s Hz bw=%s Hz pipeline=%s",
+                pass_data["satellite"], pass_data["frequency_hz"],
+                pass_data["bandwidth_hz"], pass_data["pipeline"])
+    logger.info("pass_start=%s pass_end=%s", pass_data["start"], pass_data["end"])
+    logger.info("scheduled_start=%s scheduled_end=%s",
+                pass_data["scheduled_start"], pass_data["scheduled_end"])
+    logger.info("local pass end: %s",
+                to_local_dt(pass_data["end"], tz).strftime("%Y-%m-%d %H:%M:%S %Z"))
+    logger.info("hostname=%s user=%s",
+                os.uname().nodename, os.environ.get("USER", "unknown"))
+
+    # Sanity: scheduled_end must be in the future (with small skew tolerance).
+    scheduled_end = parse_utc(pass_data["scheduled_end"])
+    now = datetime.now(timezone.utc)
+    if scheduled_end <= now:
+        logger.error("scheduled_end (%s) is not in the future (now=%s) — aborting",
+                     pass_data["scheduled_end"], now.isoformat())
+        return 1
+
+    # Hard cap: scheduled_end + safety margin.
+    hard_deadline = min(
+        scheduled_end,
+        now + timedelta(hours=6),  # absolute ceiling for any single pass
+    )
+    hard_deadline += timedelta(minutes=0)  # no slack by default
+    runtime_ceiling = scheduled_end + timedelta(minutes=MAX_RUNTIME_SAFETY_MARGIN_MIN)
+
+    satdump_bin = config["paths"]["satdump_bin"]
+    if not os.path.exists(satdump_bin):
+        logger.error("SatDump binary not found: %s", satdump_bin)
+        return 1
+
+    # Build header; write once now so the DB importer / plotter can see it mid-pass.
+    reception_payload = build_reception_header(config, pass_data, pass_id)
+    reception_json_path = os.path.join(pass_output_dir, "reception.json")
+    write_json_atomic(reception_json_path, reception_payload)
+
+    satdump_log_path = os.path.join(log_dir, f"{pass_id}-satdump.log")
+    logger.info("satdump_log=%s", satdump_log_path)
+    logger.info("reception_json=%s", reception_json_path)
+
+    try:
+        rc, stopped_by_scheduler = run_satdump(
+            config, pass_data, pass_output_dir,
+            reception_json_path, reception_payload,
+            satdump_log_path, hard_deadline,
+        )
+    except Exception:
+        logger.exception("Unhandled error during SatDump run")
+        return 1
+
+    # Enforce absolute runtime ceiling.
+    if datetime.now(timezone.utc) > runtime_ceiling:
+        logger.warning("Runtime ceiling exceeded — skipping postprocessing")
+        return 1
+
+    logger.info("SatDump exited rc=%s stopped_by_scheduler=%s", rc, stopped_by_scheduler)
+
+    expected_rcs = {0}
+    if stopped_by_scheduler:
+        expected_rcs.add(-signal.SIGTERM)  # usually -15 on POSIX
+
+    if rc not in expected_rcs:
+        logger.error("SatDump failed (rc=%s)", rc)
+        return rc if rc and rc > 0 else 1
+
+    postprocess(
+        config, pass_data, pass_id, pass_output_dir,
+        reception_json_path, reception_payload, base_dir,
+    )
+    logger.info("receive_pass.py finished successfully")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -18,3 +18,5 @@ results/database/
 *.pyc
 testdata/
 *.log
+de421.bsp
+bin/output/
