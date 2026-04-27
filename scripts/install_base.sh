@@ -245,19 +245,32 @@ cat <<'EOF'
 SatDump is required for satpi.
 
 This script will:
-- clone SatDump if it is not already present
+- remove any previous /usr/local/src/SatDump tree (always start fresh, to
+  avoid corruption from interrupted earlier clones)
+- clone SatDump from upstream
 - switch to stable version 1.2.2
 - build a headless version
 - install it to /usr/bin/satdump
+
+If a previous SatDump build exists at /usr/local/src/SatDump it will be
+deleted. The build runs in the current shell — if your SSH connection
+is unstable, run this script inside tmux so the build survives drops.
 EOF
 
 press_enter
 
 cd /usr/local/src
 
-if [[ ! -d SatDump ]]; then
-    git clone https://github.com/SatDump/SatDump.git
+# Always start with a clean tree. Interrupted clones (especially over a flaky
+# VPN or WiFi connection) leave a partially populated .git that breaks
+# subsequent 'git fetch --tags' or 'git checkout' with errors like
+# "fatal: bad object refs/heads/master" or "index file smaller than expected".
+if [[ -d SatDump ]]; then
+    info "Removing existing /usr/local/src/SatDump to start clean..."
+    sudo rm -rf SatDump
 fi
+
+git clone https://github.com/SatDump/SatDump.git
 
 cd SatDump
 sudo chown -R "$USER:$USER" .
