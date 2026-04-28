@@ -39,7 +39,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
         "pass_update_frequency", "pass_update_time", "pass_update_weekday",
         "pre_start_seconds", "post_stop_seconds", "max_pass_age_hours",
     },
-    "network": {"tle_url", "tle_timeout_seconds"},
+    "network": {"tle_url", "tle_timeout_seconds", "api_key", "tle_format"},
     "decode": {"min_cadu_size_bytes", "success_dir_relpath"},
     "copytarget": {"enabled", "type", "rclone_remote", "rclone_path", "create_link"},
     "notify": {"enabled", "mail_to", "mail_subject_prefix"},
@@ -75,7 +75,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
 
 SATELLITE_KEYS: Set[str] = {
     "enabled", "min_elevation_deg", "frequency_hz", "bandwidth_hz",
-    "pipeline", "pass_direction",
+    "pipeline", "pass_direction", "norad_id",
 }
 
 VALID_DIRECTIONS: Set[str] = {
@@ -232,6 +232,7 @@ def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[D
             "bandwidth": bw,
             "pipeline": pipeline.strip(),
             "pass_direction": direction,
+            "norad_id": s.getint("norad_id", fallback=0),
         })
     return satellites
 
@@ -255,7 +256,14 @@ def _parse_scheduling(p: configparser.ConfigParser, errors: List[str]) -> Dict[s
 def _parse_network(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any]:
     url = p.get("network", "tle_url").strip()
     timeout = p.getint("network", "tle_timeout_seconds", fallback=30)
-    return {"tle_url": url, "tle_timeout": timeout}
+    api_key = p.get("network", "api_key", fallback="").strip()
+    if not api_key:
+        api_key = os.environ.get("SATPI_N2YO_API_KEY") or ""
+    tle_format = p.get("network", "tle_format", fallback="TXT").upper()
+    if tle_format not in ("TXT", "JSON"):
+        errors.append(f"[network] tle_format must be 'TXT' or 'JSON', got '{tle_format}'")
+        tle_format = "TXT"
+    return {"tle_url": url, "tle_timeout": timeout, "api_key": api_key, "tle_format": tle_format}
 
 
 def _parse_decode(p: configparser.ConfigParser) -> Dict[str, Any]:
