@@ -314,18 +314,18 @@ def write_passes_json(pass_file: str, passes: Sequence[Dict[str, Any]]) -> None:
 def _prediction_window_hours(scheduling: Dict[str, Any]) -> int:
     """Read the prediction horizon from config, accepting the legacy name.
 
-    The legacy key `max_pass_age_hours` is misleading — the value is the
+    The legacy key `max_pass_prediction_hours` is misleading — the value is the
     *future* horizon for pass prediction, not the age of stale data. Prefer
     `prediction_window_hours` going forward; we keep the old key as fallback.
     """
     if "prediction_window_hours" in scheduling:
         return int(scheduling["prediction_window_hours"])
-    if "max_pass_age_hours" in scheduling:
+    if "max_pass_prediction_hours" in scheduling:
         logger.warning(
-            "scheduling.max_pass_age_hours is deprecated; "
+            "scheduling.max_pass_prediction_hours is deprecated; "
             "rename it to scheduling.prediction_window_hours in your config."
         )
-        return int(scheduling["max_pass_age_hours"])
+        return int(scheduling["max_pass_prediction_hours"])
     raise ConfigError("scheduling.prediction_window_hours is required")
 
 

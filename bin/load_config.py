@@ -37,7 +37,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "hardware": {"source_id", "gain", "sample_rate", "bias_t"},
     "scheduling": {
         "pass_update_frequency", "pass_update_time", "pass_update_weekday",
-        "pre_start_seconds", "post_stop_seconds", "max_pass_age_hours",
+        "pre_start_seconds", "post_stop_seconds", "max_pass_prediction_hours",
     },
     "network": {"tle_url", "tle_timeout_seconds", "api_key", "tle_format"},
     "decode": {"min_cadu_size_bytes", "success_dir_relpath"},
@@ -238,7 +238,7 @@ def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[D
 
 
 def _parse_scheduling(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any]:
-    window = p.getint("scheduling", "max_pass_age_hours", fallback=24)
+    window = p.getint("scheduling", "max_pass_prediction_hours", fallback=24)
     pre_start = p.getint("scheduling", "pre_start_seconds", fallback=120)
     post_stop = p.getint("scheduling", "post_stop_seconds", fallback=60)
     freq = p.get("scheduling", "pass_update_frequency", fallback="DAILY").strip().upper()
@@ -249,7 +249,7 @@ def _parse_scheduling(p: configparser.ConfigParser, errors: List[str]) -> Dict[s
         "weekday": wday,
         "pre_start": pre_start,
         "post_stop": post_stop,
-        "max_pass_age_hours": window,
+        "max_pass_prediction_hours": window,
     }
 
 
