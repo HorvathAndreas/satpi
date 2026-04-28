@@ -93,7 +93,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "noise_floor": {
         "measurement_duration", "schedule_minute",
         "center_freq", "bandwidth", "bin_size",
-        "freq_start_mhz", "freq_end_mhz",
+        "freq_start", "freq_end",
         "upload_enabled", "rclone_remote", "rclone_path", "create_link",
     },
 }
