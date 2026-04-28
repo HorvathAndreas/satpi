@@ -231,6 +231,32 @@ def _parse_hardware(p: configparser.ConfigParser) -> Dict[str, Any]:
     }
 
 
+
+def _parse_frequency(value: str) -> int:
+    """Parse frequency from various formats (Hz, kHz, MHz, GHz) to Hz.
+
+    Accepts: "137900000", "137.9 MHz", "137900 kHz", "0.1379 GHz"
+    Returns: frequency in Hz
+    """
+    value = value.strip()
+
+    # Try to parse with suffix
+    for suffix, multiplier in [("GHz", 1_000_000_000), ("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
+        # Case-insensitive check
+        if value.upper().endswith(suffix.upper()):
+            try:
+                num_str = value[:-len(suffix)].strip()
+                return int(float(num_str) * multiplier)
+            except ValueError:
+                pass
+
+    # Try to parse as plain number (assume Hz)
+    try:
+        return int(float(value))
+    except ValueError:
+        raise ValueError(f"Invalid frequency format: {value}")
+
+
 def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[Dict[str, Any]]:
     satellites: List[Dict[str, Any]] = []
     for section in p.sections():
@@ -239,7 +265,15 @@ def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[D
         name = section.split(".", 1)[1]
         s = p[section]
         try:
-            freq = s.getint("frequency_hz")
+            freq_str = s.get("frequency_hz", s.get("frequency", ""))
+            if not freq_str:
+                errors.append(f"satellite '{name}': frequency_hz or frequency is required")
+                continue
+            try:
+                freq = _parse_frequency(freq_str)
+            except ValueError as e:
+                errors.append(f"satellite '{name}': {e}")
+                continue
             bw_str = s.get("bandwidth_hz", s.get("bandwidth", ""))
             if not bw_str:
                 errors.append(f"satellite '{name}': bandwidth_hz or bandwidth is required")
