@@ -446,7 +446,7 @@ def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
         "schedule_minute": p.getint("noise_floor", "schedule_minute", fallback=0),
         "center_freq_mhz": p.getfloat("noise_floor", "center_freq_mhz", fallback=137.9),
         "bandwidth_mhz": p.getfloat("noise_floor", "bandwidth_mhz", fallback=0.4),
-        "bin_size": _parse_size(p.get("noise_floor", "bin_size", "10 kHz")),
+        "bin_size": _parse_size(p.get("noise_floor", "bin_size", fallback="10 kHz")),
         "upload_enabled": p.getboolean("noise_floor", "upload_enabled", fallback=False),
         "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
         "rclone_path": p.get("noise_floor", "rclone_path", fallback=""),
