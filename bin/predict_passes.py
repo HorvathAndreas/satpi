@@ -313,7 +313,7 @@ def write_passes_json(pass_file: str, passes: Sequence[Dict[str, Any]]) -> None:
 
 def _prediction_window_hours(scheduling: Dict[str, Any]) -> int:
     """Read the prediction horizon from config (hours into the future)."""
-    return int(scheduling.get("max_pass_prediction_hours", 24))
+    return int(scheduling.get("pass_max_prediction_hours", 24))
 
 def main() -> int:
     base_dir = Path(__file__).resolve().parent.parent
