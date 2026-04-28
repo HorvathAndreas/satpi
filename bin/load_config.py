@@ -25,6 +25,31 @@ class ConfigError(Exception):
     pass
 
 
+
+def _parse_bandwidth(value: str) -> int:
+    """Parse bandwidth from various formats (Hz, kHz, MHz) to Hz.
+
+    Accepts: "1000000", "1000 kHz", "1000kHz", "1 MHz", "1.2MHz"
+    Returns: bandwidth in Hz
+    """
+    value = value.strip()
+
+    # Try to parse with suffix
+    for suffix, multiplier in [("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
+        # Case-insensitive check
+        if value.upper().endswith(suffix.upper()):
+            try:
+                num_str = value[:-len(suffix)].strip()
+                return int(float(num_str) * multiplier)
+            except ValueError:
+                pass
+
+    # Try to parse as plain number (assume Hz)
+    try:
+        return int(float(value))
+    except ValueError:
+        raise ValueError(f"Invalid bandwidth format: {value}")
+
 KNOWN_KEYS: Dict[str, Set[str]] = {
     "station": {"name", "timezone"},
     "qth": {"latitude", "longitude", "altitude_m"},
@@ -215,7 +240,15 @@ def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[D
         s = p[section]
         try:
             freq = s.getint("frequency_hz")
-            bw = s.getint("bandwidth_hz")
+            bw_str = s.get("bandwidth_hz", s.get("bandwidth", ""))
+            if not bw_str:
+                errors.append(f"satellite '{name}': bandwidth_hz or bandwidth is required")
+                continue
+            try:
+                bw = _parse_bandwidth(bw_str)
+            except ValueError as e:
+                errors.append(f"satellite '{name}': {e}")
+                continue
             pipeline = s.get("pipeline")
         except (configparser.NoOptionError, ValueError) as e:
             errors.append(f"satellite '{name}': {e}")
