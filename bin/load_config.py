@@ -7,36 +7,24 @@ Converts configuration values into typed Python data structures and performs
 consistency checks so that the operational scripts fail early and with clear
 error messages if required settings are missing or invalid.
 
-Improvements vs. the previous version:
-  * configparser errors are wrapped in ConfigError
-  * unknown keys in known sections are reported (catches INI/code drift)
-  * validation is conditional on the *_enabled flags
-  * range checks for QTH, timings, bandwidth
-  * api_key falls back to SATPI_OPENAI_API_KEY / OPENAI_API_KEY env vars
-  * errors are aggregated (you get all problems at once, not just the first)
-  * prediction_window_hours / max_pass_age_hours rename is backwards-compat
-  * binaries are checked for executability, not just existence
-  * directories that the pipeline is allowed to create are auto-created
-
 Author: Andreas Horvath
 Project: Autonomous, config-driven satellite reception pipeline for Raspberry Pi
 """
 
 from __future__ import annotations
 
+import argparse
 import configparser
+import json
 import os
-from typing import Any, Dict, List, Optional, Sequence, Set
+import sys
+from typing import Any, Dict, List, Optional, Set
 
 
 class ConfigError(Exception):
     pass
 
 
-# --- Known keys (for drift detection) ---------------------------------------
-
-# Keys this parser actually reads, per section. Extra keys in the INI trigger
-# a warning via ConfigError so that dead config or typos get surfaced.
 KNOWN_KEYS: Dict[str, Set[str]] = {
     "station": {"name", "timezone"},
     "qth": {"latitude", "longitude", "altitude_m"},
@@ -49,14 +37,11 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "hardware": {"source_id", "gain", "sample_rate", "bias_t"},
     "scheduling": {
         "pass_update_frequency", "pass_update_time", "pass_update_weekday",
-        "pre_start_seconds", "post_stop_seconds",
-        "prediction_window_hours", "max_pass_age_hours",  # legacy name accepted
+        "pre_start_seconds", "post_stop_seconds", "max_pass_age_hours",
     },
     "network": {"tle_url", "tle_timeout_seconds"},
     "decode": {"min_cadu_size_bytes", "success_dir_relpath"},
-    "copytarget": {
-        "enabled", "type", "rclone_remote", "rclone_path", "create_link",
-    },
+    "copytarget": {"enabled", "type", "rclone_remote", "rclone_path", "create_link"},
     "notify": {"enabled", "mail_to", "mail_subject_prefix"},
     "systemd": {"service_user"},
     "reception_setup": {
@@ -88,15 +73,13 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
 }
 
-# Satellite section keys (dynamic section names)
 SATELLITE_KEYS: Set[str] = {
     "enabled", "min_elevation_deg", "frequency_hz", "bandwidth_hz",
     "pipeline", "pass_direction",
 }
 
 VALID_DIRECTIONS: Set[str] = {
-    "all",
-    "north_to_south", "south_to_north",
+    "all", "north_to_south", "south_to_north",
     "west_to_east", "east_to_west",
     "southwest_to_northeast", "southeast_to_northwest",
     "northwest_to_southeast", "northeast_to_southwest",
@@ -108,8 +91,6 @@ VALID_WEEKDAYS: Set[str] = {
     "FRIDAY", "SATURDAY", "SUNDAY",
 }
 
-
-# --- Helpers ----------------------------------------------------------------
 
 def _resolve_path(base_dir: str, value: str) -> str:
     value = value.strip()
@@ -130,18 +111,13 @@ def _check_unknown_keys(parser: configparser.ConfigParser, errors: List[str]) ->
         actual = set(parser.options(section))
         extra = actual - allowed
         if extra:
-            errors.append(
-                f"Unknown keys in [{section}]: {', '.join(sorted(extra))}"
-            )
+            errors.append(f"Unknown keys in [{section}]: {', '.join(sorted(extra))}")
 
-
-# --- Public entry point ------------------------------------------------------
 
 def load_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise ConfigError(f"Config file not found: {path}")
 
-    # interpolation=None avoids '%(x)s' surprises in URLs/paths.
     parser = configparser.ConfigParser(
         inline_comment_prefixes=(";", "#"),
         interpolation=None,
@@ -175,23 +151,17 @@ def load_config(path: str) -> Dict[str, Any]:
         cfg["optimize_reception_ai"] = _parse_optimize_reception_ai(parser)
         if parser.has_section("noise_floor"):
             cfg["noise_floor"] = _parse_noise_floor(parser)
-    except configparser.NoOptionError as e:
-        errors.append(f"Missing required option: {e}")
-    except configparser.NoSectionError as e:
-        errors.append(f"Missing required section: {e}")
-    except ValueError as e:
-        errors.append(f"Invalid value in config: {e}")
+    except Exception as e:
+        errors.append(f"Error: {e}")
 
     _validate_config(cfg, errors)
 
     if errors:
         joined = "\n  - ".join(errors)
-        raise ConfigError(f"Config problems in {path}:\n  - {joined}")
+        raise ConfigError(f"Config problems:\n  - {joined}")
 
     return cfg
 
-
-# --- Section parsers ---------------------------------------------------------
 
 def _parse_station(p: configparser.ConfigParser) -> Dict[str, Any]:
     return {
@@ -204,23 +174,13 @@ def _parse_qth(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any
     lat = p.getfloat("qth", "latitude")
     lon = p.getfloat("qth", "longitude")
     alt = p.getfloat("qth", "altitude_m", fallback=0.0)
-
-    if not -90.0 <= lat <= 90.0:
-        errors.append(f"qth.latitude {lat} is out of range (-90..90)")
-    if not -180.0 <= lon <= 180.0:
-        errors.append(f"qth.longitude {lon} is out of range (-180..180)")
-    if alt < -500 or alt > 9000:
-        errors.append(f"qth.altitude_m {alt} looks implausible")
-
     return {"latitude": lat, "longitude": lon, "altitude": alt}
 
 
 def _parse_paths(p: configparser.ConfigParser) -> Dict[str, Any]:
     base_dir = os.path.abspath(p.get("paths", "base_dir").strip())
-
     def rel(key: str) -> str:
         return _resolve_path(base_dir, p.get("paths", key))
-
     return {
         "base_dir": base_dir,
         "pass_file": rel("pass_file"),
@@ -246,16 +206,13 @@ def _parse_hardware(p: configparser.ConfigParser) -> Dict[str, Any]:
     }
 
 
-def _parse_satellites(
-    p: configparser.ConfigParser, errors: List[str]
-) -> List[Dict[str, Any]]:
+def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[Dict[str, Any]]:
     satellites: List[Dict[str, Any]] = []
     for section in p.sections():
         if not section.startswith("satellite."):
             continue
         name = section.split(".", 1)[1]
         s = p[section]
-
         try:
             freq = s.getint("frequency_hz")
             bw = s.getint("bandwidth_hz")
@@ -266,18 +223,7 @@ def _parse_satellites(
         if pipeline is None or not pipeline.strip():
             errors.append(f"satellite '{name}': pipeline is required")
             continue
-
         direction = s.get("pass_direction", fallback="all").strip().lower()
-        if direction not in VALID_DIRECTIONS:
-            errors.append(
-                f"satellite '{name}': invalid pass_direction '{direction}'"
-            )
-
-        if freq <= 0:
-            errors.append(f"satellite '{name}': frequency_hz must be > 0")
-        if bw <= 0:
-            errors.append(f"satellite '{name}': bandwidth_hz must be > 0")
-
         satellites.append({
             "name": name,
             "enabled": s.getboolean("enabled", fallback=True),
@@ -290,62 +236,25 @@ def _parse_satellites(
     return satellites
 
 
-def _parse_scheduling(
-    p: configparser.ConfigParser, errors: List[str]
-) -> Dict[str, Any]:
-    # Accept the legacy key for backwards compatibility.
-    if p.has_option("scheduling", "prediction_window_hours"):
-        window = p.getint("scheduling", "prediction_window_hours")
-    elif p.has_option("scheduling", "max_pass_age_hours"):
-        window = p.getint("scheduling", "max_pass_age_hours")
-    else:
-        window = 24
-
+def _parse_scheduling(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any]:
+    window = p.getint("scheduling", "max_pass_age_hours", fallback=24)
     pre_start = p.getint("scheduling", "pre_start_seconds", fallback=120)
     post_stop = p.getint("scheduling", "post_stop_seconds", fallback=60)
-
     freq = p.get("scheduling", "pass_update_frequency", fallback="DAILY").strip().upper()
     wday = p.get("scheduling", "pass_update_weekday", fallback="MONDAY").strip().upper()
-
-    if freq not in VALID_SCHEDULING_FREQUENCIES:
-        errors.append(
-            f"scheduling.pass_update_frequency '{freq}' not in "
-            f"{sorted(VALID_SCHEDULING_FREQUENCIES)}"
-        )
-    if wday not in VALID_WEEKDAYS:
-        errors.append(f"scheduling.pass_update_weekday '{wday}' is not a valid weekday")
-    if pre_start < 0:
-        errors.append(f"scheduling.pre_start_seconds must be >= 0 (got {pre_start})")
-    if post_stop < 0:
-        errors.append(f"scheduling.post_stop_seconds must be >= 0 (got {post_stop})")
-    if window <= 0:
-        errors.append(f"scheduling.prediction_window_hours must be > 0 (got {window})")
-
     return {
         "frequency": freq,
         "time": p.get("scheduling", "pass_update_time", fallback="00:00"),
         "weekday": wday,
         "pre_start": pre_start,
         "post_stop": post_stop,
-        "prediction_window_hours": window,
-        # Keep the legacy alias for any caller still reading it.
         "max_pass_age_hours": window,
     }
 
 
-def _parse_network(
-    p: configparser.ConfigParser, errors: List[str]
-) -> Dict[str, Any]:
+def _parse_network(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any]:
     url = p.get("network", "tle_url").strip()
     timeout = p.getint("network", "tle_timeout_seconds", fallback=30)
-
-    if not url:
-        errors.append("network.tle_url is required")
-    elif not (url.startswith("http://") or url.startswith("https://")):
-        errors.append(f"network.tle_url must be http(s): {url}")
-    if timeout <= 0:
-        errors.append(f"network.tle_timeout_seconds must be > 0 (got {timeout})")
-
     return {"tle_url": url, "tle_timeout": timeout}
 
 
@@ -382,21 +291,17 @@ def _parse_systemd(p: configparser.ConfigParser) -> Dict[str, Any]:
 
 
 def _parse_reception_setup(p: configparser.ConfigParser) -> Dict[str, Any]:
-    keys = [
-        "antenna_type", "antenna_location", "antenna_orientation",
-        "lna", "rf_filter", "feedline", "sdr", "raspberry_pi",
-        "power_supply", "additional_info",
-    ]
+    keys = ["antenna_type", "antenna_location", "antenna_orientation",
+            "lna", "rf_filter", "feedline", "sdr", "raspberry_pi",
+            "power_supply", "additional_info"]
     return {k: p.get("reception_setup", k, fallback="") for k in keys}
 
 
 def _parse_optimize_reception(p: configparser.ConfigParser) -> Dict[str, Any]:
     def f(key: str, default: float) -> float:
         return p.getfloat("optimize_reception", key, fallback=default)
-
     def i(key: str, default: int) -> int:
         return p.getint("optimize_reception", key, fallback=default)
-
     return {
         "enabled": p.getboolean("optimize_reception", "enabled", fallback=False),
         "max_delta_aos_azimuth": f("max_delta_aos_azimuth", 20.0),
@@ -409,7 +314,6 @@ def _parse_optimize_reception(p: configparser.ConfigParser) -> Dict[str, Any]:
         "weight_sync_drop_count": f("weight_sync_drop_count", -0.5),
         "weight_median_snr_synced": f("weight_median_snr_synced", 0.3),
         "weight_median_ber_synced": f("weight_median_ber_synced", -0.8),
-        # Elevation bands (previously ignored by the parser).
         "elevation_band_1_max": i("elevation_band_1_max", 20),
         "elevation_band_2_max": i("elevation_band_2_max", 35),
         "elevation_band_3_max": i("elevation_band_3_max", 50),
@@ -421,129 +325,110 @@ def _parse_optimize_reception(p: configparser.ConfigParser) -> Dict[str, Any]:
 
 def _parse_optimize_reception_ai(p: configparser.ConfigParser) -> Dict[str, Any]:
     api_key = p.get("optimize_reception_ai", "api_key", fallback="").strip()
-    # Env fallback so secrets don't have to live in config.ini.
     if not api_key:
-        api_key = (
-            os.environ.get("SATPI_OPENAI_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-            or ""
-        )
-
+        api_key = os.environ.get("SATPI_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
     return {
         "enabled": p.getboolean("optimize_reception_ai", "enabled", fallback=False),
         "max_passes": p.getint("optimize_reception_ai", "max_passes", fallback=25),
         "model": p.get("optimize_reception_ai", "model", fallback="gpt-5"),
-        "include_optimizer_report": p.getboolean(
-            "optimize_reception_ai", "include_optimizer_report", fallback=True,
-        ),
-        "temperature": p.getfloat(
-            "optimize_reception_ai", "temperature", fallback=1.0,
-        ),
+        "include_optimizer_report": p.getboolean("optimize_reception_ai", "include_optimizer_report", fallback=True),
+        "temperature": p.getfloat("optimize_reception_ai", "temperature", fallback=1.0),
         "api_key": api_key,
     }
 
 
-# --- Validation --------------------------------------------------------------
-
-
 def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
-    def _bool(key: str, default: bool) -> bool:
-        return p.getboolean("noise_floor", key, fallback=default)
-    def _str(key: str, default: str = "") -> str:
-        return p.get("noise_floor", key, fallback=default).strip()
-    def _int(key: str, default: int) -> int:
-        return p.getint("noise_floor", key, fallback=default)
-    def _float(key: str, default: float) -> float:
-        return p.getfloat("noise_floor", key, fallback=default)
-    def _float_opt(key: str) -> float | None:
-        val = p.get("noise_floor", key, fallback="").strip()
-        return float(val) if val else None
-
-    center = _float("center_freq_mhz", 137.9)
-    bw     = _float("bandwidth_mhz", 0.4)
     return {
-        "measurement_duration": _int("measurement_duration", 600),
-        "schedule_minute":      _int("schedule_minute", 0),
-        "center_freq_mhz":      center,
-        "bandwidth_mhz":        bw,
-        "bin_size_khz":         _float("bin_size_khz", 10.0),
-        # Explicit start/end override center+bandwidth when set
-        "freq_start_mhz":       _float_opt("freq_start_mhz"),
-        "freq_end_mhz":         _float_opt("freq_end_mhz"),
-        "upload_enabled":       _bool("upload_enabled", False),
-        "rclone_remote":        _str("rclone_remote"),
-        "rclone_path":          _str("rclone_path"),
-        "create_link":          _bool("create_link", False),
+        "measurement_duration": p.getint("noise_floor", "measurement_duration", fallback=600),
+        "schedule_minute": p.getint("noise_floor", "schedule_minute", fallback=0),
+        "center_freq_mhz": p.getfloat("noise_floor", "center_freq_mhz", fallback=137.9),
+        "bandwidth_mhz": p.getfloat("noise_floor", "bandwidth_mhz", fallback=0.4),
+        "bin_size_khz": p.getfloat("noise_floor", "bin_size_khz", fallback=10.0),
+        "upload_enabled": p.getboolean("noise_floor", "upload_enabled", fallback=False),
+        "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
+        "rclone_path": p.get("noise_floor", "rclone_path", fallback=""),
+        "create_link": p.getboolean("noise_floor", "create_link", fallback=False),
     }
-
-def _is_executable(path: str) -> bool:
-    return os.path.isfile(path) and os.access(path, os.X_OK)
 
 
 def _validate_config(cfg: Dict[str, Any], errors: List[str]) -> None:
-    # Require at least one enabled satellite.
     satellites = cfg.get("satellites", [])
     if not satellites:
         errors.append("No satellites defined")
-    else:
-        active = [s for s in satellites if s["enabled"]]
-        if not active:
-            errors.append("No enabled satellites")
 
-    paths = cfg.get("paths", {})
 
-    # base_dir must exist (we never create it).
-    base_dir = paths.get("base_dir")
-    if base_dir and not os.path.isdir(base_dir):
-        errors.append(f"paths.base_dir does not exist: {base_dir}")
+def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_config = os.path.abspath(os.path.join(script_dir, "..", "config", "config.ini"))
 
-    # Directories the pipeline is allowed to create on first run.
-    for key in ("log_dir", "output_dir", "generated_units_dir", "optimization_dir"):
-        path = paths.get(key)
-        if not path:
-            continue
-        try:
-            os.makedirs(path, exist_ok=True)
-        except OSError as e:
-            errors.append(f"paths.{key} cannot be created ({path}): {e}")
+    parser = argparse.ArgumentParser(
+        prog="load_config.py",
+        description="SATPI Configuration Loader",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+EXAMPLES:
+  python3 load_config.py
+  python3 load_config.py --config /path/to/config.ini
+  python3 load_config.py --section station --key name
+  python3 load_config.py --section hardware
+  python3 load_config.py --verbose
+        """
+    )
 
-    # Binaries: must exist and be executable.
-    if paths.get("satdump_bin") and not _is_executable(paths["satdump_bin"]):
-        errors.append(f"paths.satdump_bin is not an executable file: {paths['satdump_bin']}")
-    if paths.get("python_bin") and not _is_executable(paths["python_bin"]):
-        errors.append(f"paths.python_bin is not an executable file: {paths['python_bin']}")
+    parser.add_argument("-c", "--config", default=default_config, metavar="PATH", help="Path to config.ini")
+    parser.add_argument("-s", "--section", metavar="SECTION", help="Config section to query")
+    parser.add_argument("-k", "--key", metavar="KEY", help="Config key to query")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
-    # Mail binary only required when notifications are on.
-    notify = cfg.get("notify", {})
-    if notify.get("enabled"):
-        if not notify.get("mail_to"):
-            errors.append("notify.enabled=true but notify.mail_to is missing")
-        if paths.get("mail_bin") and not _is_executable(paths["mail_bin"]):
-            errors.append(f"paths.mail_bin is not an executable file: {paths['mail_bin']}")
+    args = parser.parse_args()
 
-    # rclone target only required when copytarget is on.
-    copytarget = cfg.get("copytarget", {})
-    if copytarget.get("enabled"):
-        if not copytarget.get("rclone_remote"):
-            errors.append("copytarget.enabled=true but copytarget.rclone_remote is missing")
-        if not copytarget.get("rclone_path"):
-            errors.append("copytarget.enabled=true but copytarget.rclone_path is missing")
+    if args.key and not args.section:
+        parser.error("--key requires --section")
 
-    # AI optimizer needs an API key when enabled.
-    ai = cfg.get("optimize_reception_ai", {})
-    if ai.get("enabled") and not ai.get("api_key"):
-        errors.append(
-            "optimize_reception_ai.enabled=true but no api_key is configured "
-            "(set api_key in config, or SATPI_OPENAI_API_KEY / OPENAI_API_KEY env var)"
-        )
+    if not os.path.exists(args.config):
+        print(f"Error: Config file not found: {args.config}", file=sys.stderr)
+        sys.exit(1)
 
-    # Sanity: bandwidth not larger than sample rate (warning-level, but we add it).
-    hardware = cfg.get("hardware", {})
-    sr = hardware.get("sample_rate")
-    if sr:
-        for s in satellites:
-            if s["bandwidth"] > sr:
-                errors.append(
-                    f"satellite '{s['name']}': bandwidth_hz ({s['bandwidth']}) "
-                    f"exceeds hardware.sample_rate ({int(sr)})"
-                )
+    try:
+        cfg = load_config(args.config)
+        
+        if args.section:
+            if args.key:
+                if args.section in cfg and isinstance(cfg[args.section], dict):
+                    if args.key in cfg[args.section]:
+                        print(cfg[args.section][args.key])
+                    else:
+                        print(f"Error: Key '{args.key}' not found", file=sys.stderr)
+                        sys.exit(1)
+            else:
+                if args.section in cfg:
+                    if args.json:
+                        print(json.dumps(cfg[args.section], indent=2, default=str))
+                    else:
+                        if isinstance(cfg[args.section], dict):
+                            for k, v in cfg[args.section].items():
+                                print(f"{k} = {v}")
+        else:
+            if args.verbose:
+                print("Configuration validated successfully")
+                print(f"Config file: {args.config}")
+                print("\nLoaded sections:")
+                for section in sorted(cfg.keys()):
+                    if isinstance(cfg[section], dict):
+                        print(f"  [{section}] - {len(cfg[section])} items")
+                    elif isinstance(cfg[section], list):
+                        print(f"  [{section}] - {len(cfg[section])} items")
+            else:
+                print("Config OK")
+                print("\nUse --help for more options")
+
+        sys.exit(0)
+
+    except ConfigError as e:
+        print(f"Config Error:\n{e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
