@@ -20,3 +20,6 @@ testdata/
 *.log
 de421.bsp
 bin/output/
+
+# Local-only project rules for Claude — never publish
+/CLAUDE.md
