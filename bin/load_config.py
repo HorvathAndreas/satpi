@@ -92,7 +92,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
     "noise_floor": {
         "measurement_duration", "schedule_minute",
-        "center_freq_mhz", "bandwidth_mhz", "bin_size",
+        "center_freq", "bandwidth", "bin_size",
         "freq_start_mhz", "freq_end_mhz",
         "upload_enabled", "rclone_remote", "rclone_path", "create_link",
     },
@@ -444,8 +444,8 @@ def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
     return {
         "measurement_duration": p.getint("noise_floor", "measurement_duration", fallback=600),
         "schedule_minute": p.getint("noise_floor", "schedule_minute", fallback=0),
-        "center_freq_mhz": p.getfloat("noise_floor", "center_freq_mhz", fallback=137.9),
-        "bandwidth_mhz": p.getfloat("noise_floor", "bandwidth_mhz", fallback=0.4),
+        "center_freq": p.getfloat("noise_floor", "center_freq", fallback=137.9),
+        "bandwidth": p.getfloat("noise_floor", "bandwidth", fallback=0.4),
         "bin_size": _parse_size(p.get("noise_floor", "bin_size", fallback="10 kHz")),
         "upload_enabled": p.getboolean("noise_floor", "upload_enabled", fallback=False),
         "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
