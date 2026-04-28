@@ -92,14 +92,14 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
     "noise_floor": {
         "measurement_duration", "schedule_minute",
-        "center_freq_mhz", "bandwidth_mhz", "bin_size_khz",
+        "center_freq_mhz", "bandwidth_mhz", "bin_size",
         "freq_start_mhz", "freq_end_mhz",
         "upload_enabled", "rclone_remote", "rclone_path", "create_link",
     },
 }
 
 SATELLITE_KEYS: Set[str] = {
-    "enabled", "min_elevation_deg", "frequency_hz", "bandwidth_hz",
+    "enabled", "min_elevation_deg", "frequency", "bandwidth",
     "pipeline", "pass_direction", "norad_id",
 }
 
@@ -257,6 +257,34 @@ def _parse_frequency(value: str) -> int:
         raise ValueError(f"Invalid frequency format: {value}")
 
 
+
+def _parse_size(value: str) -> float:
+    """Parse size from various formats (Hz, kHz, MHz) and return in kHz.
+
+    Used for bin_size and similar parameters that are typically in kHz.
+    Accepts: "10", "10 kHz", "10kHz", "0.01 MHz", "10000 Hz"
+    Returns: size in kHz
+    """
+    value = str(value).strip()
+
+    # Try to parse with suffix
+    for suffix, multiplier_hz in [("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
+        # Case-insensitive check
+        if value.upper().endswith(suffix.upper()):
+            try:
+                num_str = value[:-len(suffix)].strip()
+                hz = float(num_str) * multiplier_hz
+                return hz / 1_000  # Convert to kHz
+            except ValueError:
+                pass
+
+    # Try to parse as plain number (assume kHz for bin_size context)
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Invalid size format: {value}")
+
+
 def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[Dict[str, Any]]:
     satellites: List[Dict[str, Any]] = []
     for section in p.sections():
@@ -265,18 +293,18 @@ def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[D
         name = section.split(".", 1)[1]
         s = p[section]
         try:
-            freq_str = s.get("frequency_hz", s.get("frequency", ""))
+            freq_str = s.get("frequency", s.get("frequency_hz", ""))
             if not freq_str:
-                errors.append(f"satellite '{name}': frequency_hz or frequency is required")
+                errors.append(f"satellite '{name}': frequency is required")
                 continue
             try:
                 freq = _parse_frequency(freq_str)
             except ValueError as e:
                 errors.append(f"satellite '{name}': {e}")
                 continue
-            bw_str = s.get("bandwidth_hz", s.get("bandwidth", ""))
+            bw_str = s.get("bandwidth", s.get("bandwidth_hz", ""))
             if not bw_str:
-                errors.append(f"satellite '{name}': bandwidth_hz or bandwidth is required")
+                errors.append(f"satellite '{name}': bandwidth is required")
                 continue
             try:
                 bw = _parse_bandwidth(bw_str)
@@ -418,7 +446,7 @@ def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
         "schedule_minute": p.getint("noise_floor", "schedule_minute", fallback=0),
         "center_freq_mhz": p.getfloat("noise_floor", "center_freq_mhz", fallback=137.9),
         "bandwidth_mhz": p.getfloat("noise_floor", "bandwidth_mhz", fallback=0.4),
-        "bin_size_khz": p.getfloat("noise_floor", "bin_size_khz", fallback=10.0),
+        "bin_size": _parse_size(p.get("noise_floor", "bin_size", "10 kHz")),
         "upload_enabled": p.getboolean("noise_floor", "upload_enabled", fallback=False),
         "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
         "rclone_path": p.get("noise_floor", "rclone_path", fallback=""),
