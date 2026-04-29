@@ -21,6 +21,14 @@ Improvements vs. the previous version:
   * Mail is sent even when rclone upload fails (with the local path)
   * Postprocessing consolidated into a single function
 
+Refactoring improvements:
+  * SkyFieldCache class for TLE/timescale management
+  * Simplified run_satdump() by extracting output processing
+  * Removed global state flags in favor of logging filters
+  * Robust host identity detection with fallbacks
+  * Unified subprocess timeout handler
+  * Cached satellite name normalization
+
 Author: Andreas Horvath
 Project: Autonomous, config-driven satellite reception pipeline for Raspberry Pi
 """
@@ -28,6 +36,7 @@ Project: Autonomous, config-driven satellite reception pipeline for Raspberry Pi
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import logging
 import os
@@ -67,8 +76,8 @@ SYNC_LINE_RE = re.compile(
 )
 
 PERSIST_INTERVAL_SECONDS = 10
-SATDUMP_TERMINATION_GRACE = 10         # seconds to wait after SIGTERM before SIGKILL
-MAX_RUNTIME_SAFETY_MARGIN_MIN = 60     # hard cap = scheduled_end + this
+SATDUMP_TERMINATION_GRACE = 10
+MAX_RUNTIME_SAFETY_MARGIN_MIN = 60
 DECODE_TIMEOUT_SECONDS = 15 * 60
 COPY_TIMEOUT_SECONDS = 30 * 60
 MAIL_TIMEOUT_SECONDS = 60
@@ -87,10 +96,93 @@ logger = logging.getLogger("satpi.receive_pass")
 _STOP_EVENT = threading.Event()
 
 
+# --- Skyfield Cache -------------------------------------------------------
+
+class SkyFieldCache:
+    """Manages Skyfield timescale and TLE satellite loading with caching."""
+    
+    def __init__(self, data_dir: str):
+        self.data_dir = data_dir
+        self.loader: Optional[Loader] = None
+        self.timescale = None
+        self._tle_cache: Dict[str, Any] = {"path": None, "mtime": None, "satellites": None}
+    
+    def get_timescale(self):
+        """Load Skyfield timescale, with builtin fallback if download fails."""
+        if self.timescale is not None:
+            return self.timescale
+        
+        os.makedirs(self.data_dir, exist_ok=True)
+        self.loader = Loader(self.data_dir)
+        try:
+            self.timescale = self.loader.timescale()
+        except Exception:
+            logger.warning("Skyfield timescale download failed; using builtin data.")
+            self.timescale = self.loader.timescale(builtin=True)
+        return self.timescale
+    
+    def load_tle_satellites(self, tle_path: str) -> Dict[str, EarthSatellite]:
+        """Load TLE satellites from file, with caching by mtime."""
+        mtime = os.path.getmtime(tle_path)
+        if (
+            self._tle_cache["path"] == tle_path
+            and self._tle_cache["mtime"] == mtime
+            and self._tle_cache["satellites"] is not None
+        ):
+            return self._tle_cache["satellites"]
+        
+        with open(tle_path, "r", encoding="utf-8") as f:
+            lines = [ln.strip() for ln in f if ln.strip()]
+        
+        ts = self.get_timescale()
+        satellites: Dict[str, EarthSatellite] = {}
+        i = 0
+        while i + 2 < len(lines):
+            name, l1, l2 = lines[i], lines[i + 1], lines[i + 2]
+            if l1.startswith("1 ") and l2.startswith("2 "):
+                satellites[normalize_sat_name(name)] = EarthSatellite(l1, l2, name, ts)
+                i += 3
+            else:
+                i += 1
+        
+        self._tle_cache.update(path=tle_path, mtime=mtime, satellites=satellites)
+        return satellites
+    
+    def compute_az_el(
+        self,
+        config: Dict[str, Any],
+        sample_ts_utc: str,
+        satellite_name: str,
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """Compute azimuth and elevation for a satellite at a given time.
+        
+        Returns (az, el) in degrees, or (None, None) if lookup fails.
+        """
+        try:
+            sats = self.load_tle_satellites(config["paths"]["tle_file"])
+            sat = sats.get(normalize_sat_name(satellite_name))
+            if sat is None:
+                logger.debug("Satellite not found in TLE: %s", satellite_name)
+                return None, None
+            
+            qth = config["qth"]
+            observer = wgs84.latlon(qth["latitude"], qth["longitude"], elevation_m=qth["altitude"])
+            t = self.get_timescale().from_datetime(parse_utc(sample_ts_utc))
+            alt, az, _ = (sat - observer).at(t).altaz()
+            return float(round(az.degrees, 3)), float(round(alt.degrees, 3))
+        except Exception as e:
+            logger.debug("Az/El lookup failed: %s", e)
+            return None, None
+
+
 # --- Helpers -----------------------------------------------------------------
 
+@functools.cache
 def normalize_sat_name(name: str) -> str:
-    """Same normalization used across predict_passes / update_tle."""
+    """Same normalization used across predict_passes / update_tle.
+    
+    Cached to avoid repeated normalization of the same satellite name.
+    """
     return " ".join(name.strip().upper().replace("-", " ").replace("_", " ").split())
 
 
@@ -150,83 +242,6 @@ def load_pass_file(path: str) -> Dict[str, Any]:
     if missing:
         raise ValueError(f"pass file {path} missing fields: {missing}")
     return data
-
-
-# --- Skyfield + TLE ----------------------------------------------------------
-
-_SF_LOADER: Optional[Loader] = None
-_SF_TIMESCALE = None
-_TLE_CACHE: Dict[str, Any] = {"path": None, "mtime": None, "satellites": None}
-_TLE_LOOKUP_FAIL_LOGGED = False
-
-
-def _timescale():
-    global _SF_LOADER, _SF_TIMESCALE
-    if _SF_TIMESCALE is not None:
-        return _SF_TIMESCALE
-    os.makedirs(SKYFIELD_DATA_DIR, exist_ok=True)
-    _SF_LOADER = Loader(SKYFIELD_DATA_DIR)
-    try:
-        _SF_TIMESCALE = _SF_LOADER.timescale()
-    except Exception:
-        logger.warning("Skyfield timescale download failed; using builtin data.")
-        _SF_TIMESCALE = _SF_LOADER.timescale(builtin=True)
-    return _SF_TIMESCALE
-
-
-def _load_tle_satellites(tle_path: str) -> Dict[str, EarthSatellite]:
-    mtime = os.path.getmtime(tle_path)
-    if (
-        _TLE_CACHE["path"] == tle_path
-        and _TLE_CACHE["mtime"] == mtime
-        and _TLE_CACHE["satellites"] is not None
-    ):
-        return _TLE_CACHE["satellites"]
-
-    with open(tle_path, "r", encoding="utf-8") as f:
-        lines = [ln.strip() for ln in f if ln.strip()]
-
-    ts = _timescale()
-    satellites: Dict[str, EarthSatellite] = {}
-    i = 0
-    while i + 2 < len(lines):
-        name, l1, l2 = lines[i], lines[i + 1], lines[i + 2]
-        if l1.startswith("1 ") and l2.startswith("2 "):
-            satellites[normalize_sat_name(name)] = EarthSatellite(l1, l2, name, ts)
-            i += 3
-        else:
-            i += 1
-
-    _TLE_CACHE.update(path=tle_path, mtime=mtime, satellites=satellites)
-    return satellites
-
-
-def compute_az_el(
-    config: Dict[str, Any],
-    sample_ts_utc: str,
-    satellite_name: str,
-) -> Tuple[Optional[float], Optional[float]]:
-    """Return (az, el) in degrees, or (None, None) if lookup fails."""
-    global _TLE_LOOKUP_FAIL_LOGGED
-    try:
-        sats = _load_tle_satellites(config["paths"]["tle_file"])
-        sat = sats.get(normalize_sat_name(satellite_name))
-        if sat is None:
-            if not _TLE_LOOKUP_FAIL_LOGGED:
-                logger.warning("Satellite not found in TLE: %s", satellite_name)
-                _TLE_LOOKUP_FAIL_LOGGED = True
-            return None, None
-
-        qth = config["qth"]
-        observer = wgs84.latlon(qth["latitude"], qth["longitude"], elevation_m=qth["altitude"])
-        t = _timescale().from_datetime(parse_utc(sample_ts_utc))
-        alt, az, _ = (sat - observer).at(t).altaz()
-        return float(round(az.degrees, 3)), float(round(alt.degrees, 3))
-    except Exception as e:
-        if not _TLE_LOOKUP_FAIL_LOGGED:
-            logger.warning("Az/El lookup failed, continuing without geometry: %s", e)
-            _TLE_LOOKUP_FAIL_LOGGED = True
-        return None, None
 
 
 # --- SatDump command ---------------------------------------------------------
@@ -312,17 +327,10 @@ def write_json_atomic(target_path: str, payload: Dict[str, Any]) -> None:
     target = Path(target_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-            f.write("\n")
-        os.replace(tmp, target)
-    finally:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, target)
 
 
 # --- SatDump stdout reader (thread) -----------------------------------------
@@ -335,6 +343,54 @@ def _reader_thread(stream, q: "queue.Queue[Optional[str]]") -> None:
         q.put(None)  # sentinel: EOF
 
 
+# --- SatDump output processing -----------------------------------------------
+
+def _process_satdump_line(
+    line: str,
+    sky_cache: SkyFieldCache,
+    config: Dict[str, Any],
+    pass_data: Dict[str, Any],
+    current_state: Dict[str, Any],
+    samples: List[Dict[str, Any]],
+) -> None:
+    """Process a single line of SatDump output.
+    
+    Parses SNR/SYNC data and appends sample records to the reception payload.
+    """
+    snr = parse_snr_line(line)
+    if snr:
+        current_state["snr_db"] = snr["snr_db"]
+        current_state["peak_snr_db"] = snr["peak_snr_db"]
+    
+    sync = parse_sync_line(line)
+    if sync and current_state["snr_db"] is not None:
+        az, el = sky_cache.compute_az_el(config, sync["timestamp"], pass_data["satellite"])
+        samples.append({
+            "timestamp": sync["timestamp"],
+            "snr_db": current_state["snr_db"],
+            "peak_snr_db": current_state["peak_snr_db"],
+            "ber": sync["ber"],
+            "viterbi_state": sync["viterbi_state"],
+            "deframer_state": sync["deframer_state"],
+            "azimuth_deg": az,
+            "elevation_deg": el,
+        })
+
+
+def _check_should_stop(hard_deadline: datetime) -> bool:
+    """Check if we should stop SatDump (stop event or deadline reached)."""
+    if _STOP_EVENT.is_set():
+        logger.info("Stop event received — terminating SatDump")
+        return True
+    
+    now = datetime.now(timezone.utc)
+    if now >= hard_deadline:
+        logger.info("Reached scheduled_end, terminating SatDump")
+        return True
+    
+    return False
+
+
 # --- Run SatDump with periodic persist + clock cap --------------------------
 
 def run_satdump(
@@ -345,6 +401,7 @@ def run_satdump(
     reception_payload: Dict[str, Any],
     satdump_log_path: str,
     hard_deadline: datetime,
+    sky_cache: SkyFieldCache,
 ) -> Tuple[int, bool]:
     """Run SatDump, consume stdout in a thread, stop at scheduled_end.
 
@@ -375,21 +432,14 @@ def run_satdump(
 
         try:
             while True:
-                if _STOP_EVENT.is_set():
-                    logger.info("Stop event received — terminating SatDump")
-                    stopped_by_scheduler = True
-                    break
-
-                now = datetime.now(timezone.utc)
-                if now >= hard_deadline:
-                    logger.info("Reached scheduled_end, terminating SatDump")
+                if _check_should_stop(hard_deadline):
                     stopped_by_scheduler = True
                     break
 
                 try:
                     line = q.get(timeout=1.0)
                 except queue.Empty:
-                    line = ""  # no output this second
+                    line = ""
 
                 if line is None:
                     # Reader hit EOF
@@ -397,25 +447,9 @@ def run_satdump(
 
                 if line:
                     sd_log.write(line)
-
-                    snr = parse_snr_line(line)
-                    if snr:
-                        current_state["snr_db"] = snr["snr_db"]
-                        current_state["peak_snr_db"] = snr["peak_snr_db"]
-
-                    sync = parse_sync_line(line)
-                    if sync and current_state["snr_db"] is not None:
-                        az, el = compute_az_el(config, sync["timestamp"], pass_data["satellite"])
-                        samples.append({
-                            "timestamp": sync["timestamp"],
-                            "snr_db": current_state["snr_db"],
-                            "peak_snr_db": current_state["peak_snr_db"],
-                            "ber": sync["ber"],
-                            "viterbi_state": sync["viterbi_state"],
-                            "deframer_state": sync["deframer_state"],
-                            "azimuth_deg": az,
-                            "elevation_deg": el,
-                        })
+                    _process_satdump_line(
+                        line, sky_cache, config, pass_data, current_state, samples
+                    )
 
                 if proc.poll() is not None and q.empty():
                     break
@@ -467,26 +501,30 @@ def _run_with_timeout(
     log_path: Optional[str] = None,
     cwd: Optional[str] = None,
 ) -> int:
+    """Run a command with a timeout, optionally logging to a file."""
     logger.info("Running: %s", " ".join(cmd))
+    
     try:
-        if log_path:
-            with open(log_path, "w", encoding="utf-8") as lf:
-                proc = subprocess.run(
-                    cmd, stdout=lf, stderr=subprocess.STDOUT, timeout=timeout, cwd=cwd,
-                )
-        else:
+        with open(log_path, "w", encoding="utf-8") if log_path else open(os.devnull, "w") as lf:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+                cmd,
+                stdout=lf if log_path else subprocess.PIPE,
+                stderr=subprocess.STDOUT if log_path else subprocess.PIPE,
+                text=True,
+                timeout=timeout,
+                cwd=cwd,
             )
-            if proc.stdout and proc.stdout.strip():
-                logger.info("stdout: %s", proc.stdout.strip())
-            if proc.stderr and proc.stderr.strip():
-                (logger.debug if proc.returncode == 0 else logger.warning)(
-                    "stderr: %s", proc.stderr.strip()
-                )
     except subprocess.TimeoutExpired:
         logger.error("Command timed out after %ds: %s", timeout, " ".join(cmd))
         return 124
+
+    if proc.stdout and proc.stdout.strip():
+        logger.info("stdout: %s", proc.stdout.strip())
+    if proc.stderr and proc.stderr.strip():
+        (logger.debug if proc.returncode == 0 else logger.warning)(
+            "stderr: %s", proc.stderr.strip()
+        )
+
     logger.info("Exit code: %s", proc.returncode)
     return proc.returncode
 
@@ -579,19 +617,41 @@ def copy_output(
 
 
 def _host_identity() -> Tuple[str, str]:
+    """Get hostname and IP address with multiple fallback strategies."""
     hostname = socket.gethostname()
     ip = "unknown"
+    
+    # Try 1: UDP socket connect (no actual connection)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(2)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
+        return hostname, ip
     except Exception:
-        try:
-            ip = socket.gethostbyname(hostname)
-        except Exception:
-            pass
+        pass
+    
+    # Try 2: gethostbyname
+    try:
+        ip = socket.gethostbyname(hostname)
+        return hostname, ip
+    except Exception:
+        pass
+    
+    # Try 3: hostname -I (Linux)
+    try:
+        result = subprocess.run(
+            ["hostname", "-I"], capture_output=True, text=True,
+            timeout=2, check=False
+        )
+        if result.stdout.strip():
+            ip = result.stdout.strip().split()[0]
+            return hostname, ip
+    except Exception:
+        pass
+    
+    # Fallback: return hostname with unknown IP
     return hostname, ip
 
 
@@ -809,6 +869,9 @@ def main() -> int:
         logger.error("SatDump binary not found: %s", satdump_bin)
         return 1
 
+    # Initialize Skyfield cache.
+    sky_cache = SkyFieldCache(SKYFIELD_DATA_DIR)
+
     # Build header; write once now so the DB importer / plotter can see it mid-pass.
     reception_payload = build_reception_header(config, pass_data, pass_id)
     reception_json_path = os.path.join(pass_output_dir, "reception.json")
@@ -822,7 +885,7 @@ def main() -> int:
         rc, stopped_by_scheduler = run_satdump(
             config, pass_data, pass_output_dir,
             reception_json_path, reception_payload,
-            satdump_log_path, hard_deadline,
+            satdump_log_path, hard_deadline, sky_cache,
         )
     except Exception:
         logger.exception("Unhandled error during SatDump run")
