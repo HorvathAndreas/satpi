@@ -294,6 +294,9 @@ cmake .. \
 cmake --build . -j "$(nproc)"
 sudo cmake --install .
 
+# Disable SatDump TLE auto-updates
+sudo sed -i '/tle_update_interval/,/^[[:space:]]*},/{s/"value": "[^"]*"/"value": "Never"/}' /usr/share/satdump/satdump_cfg.json
+
 info "SatDump installed."
 
 press_enter
