@@ -223,11 +223,44 @@ def setup_logger(log_file: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="SATPI pass receiver")
+    
+    # Config path
+    p.add_argument(
+        "--config",
+        help="Path to config.ini (default: ~/satpi/config/config.ini)",
+    )
+    
+    # Mode 1: Pass file (normal operation)
     p.add_argument(
         "--pass-file",
-        required=True,
         help="JSON sidecar with pass parameters (written by schedule_passes.py)",
     )
+    
+    # Mode 2: Interactive parameters
+    p.add_argument(
+        "--frequency",
+        help="Downlink frequency (e.g., 137.9 MHz, 137900000 Hz)",
+    )
+    p.add_argument(
+        "--bandwidth",
+        help="RF bandwidth (e.g., 1 MHz, 1000 kHz)",
+    )
+    p.add_argument(
+        "--pipeline",
+        help="SatDump pipeline name (e.g., meteor_m2-x_lrpt)",
+    )
+    p.add_argument(
+        "--satellite",
+        default="UNKNOWN",
+        help="Satellite name (default: UNKNOWN)",
+    )
+    p.add_argument(
+        "--duration",
+        type=int,
+        default=10,
+        help="Reception duration in minutes (default: 10)",
+    )
+    
     return p.parse_args()
 
 
@@ -802,11 +835,53 @@ def _install_signal_handlers() -> None:
 
 # --- Main --------------------------------------------------------------------
 
+def build_interactive_pass_data(
+    args: argparse.Namespace,
+) -> Dict[str, Any]:
+    """Build pass data from interactive command-line arguments.
+    
+    Used when --pass-file is not provided.
+    """
+    from load_config import _parse_frequency, _parse_bandwidth
+    
+    # Parse frequency and bandwidth with flexible formats
+    try:
+        frequency_hz = _parse_frequency(args.frequency)
+    except ValueError as e:
+        raise ValueError(f"Invalid frequency: {e}")
+    
+    try:
+        bandwidth_hz = _parse_bandwidth(args.bandwidth)
+    except ValueError as e:
+        raise ValueError(f"Invalid bandwidth: {e}")
+    
+    # Build time range
+    now = datetime.now(timezone.utc)
+    start_time = now
+    end_time = now + timedelta(minutes=args.duration)
+    
+    return {
+        "satellite": args.satellite,
+        "frequency_hz": frequency_hz,
+        "bandwidth_hz": bandwidth_hz,
+        "pipeline": args.pipeline,
+        "start": start_time.isoformat().replace("+00:00", "Z"),
+        "end": end_time.isoformat().replace("+00:00", "Z"),
+        "scheduled_start": start_time.isoformat().replace("+00:00", "Z"),
+        "scheduled_end": end_time.isoformat().replace("+00:00", "Z"),
+    }
+
+
 def main() -> int:
     args = parse_args()
 
     base_dir = str(Path(__file__).resolve().parent.parent)
-    config_path = os.path.join(base_dir, "config", "config.ini")
+    
+    # Determine config path
+    if args.config:
+        config_path = args.config
+    else:
+        config_path = os.path.join(base_dir, "config", "config.ini")
 
     try:
         config = load_config(config_path)
@@ -819,11 +894,28 @@ def main() -> int:
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    try:
-        pass_data = load_pass_file(args.pass_file)
-    except (OSError, ValueError, json.JSONDecodeError) as e:
-        print(f"[receive_pass] PASS FILE ERROR: {e}", file=sys.stderr)
-        return 2
+    # Determine operating mode
+    if args.pass_file:
+        # Mode 1: Pass file
+        try:
+            pass_data = load_pass_file(args.pass_file)
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            print(f"[receive_pass] PASS FILE ERROR: {e}", file=sys.stderr)
+            return 2
+    else:
+        # Mode 2: Interactive parameters
+        if not (args.frequency and args.bandwidth and args.pipeline):
+            print(
+                "[receive_pass] ERROR: Either --pass-file OR "
+                "(--frequency, --bandwidth, --pipeline) must be provided",
+                file=sys.stderr
+            )
+            return 2
+        try:
+            pass_data = build_interactive_pass_data(args)
+        except ValueError as e:
+            print(f"[receive_pass] PARAMETER ERROR: {e}", file=sys.stderr)
+            return 2
 
     tz = config["station"]["timezone"]
     local_start = format_local_filename_timestamp(pass_data["start"], tz)
