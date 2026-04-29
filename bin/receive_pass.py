@@ -261,6 +261,12 @@ def parse_args() -> argparse.Namespace:
         help="Reception duration in minutes (default: 10)",
     )
     
+    p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show SatDump output in real-time on stderr",
+    )
+    
     return p.parse_args()
 
 
@@ -435,6 +441,7 @@ def run_satdump(
     satdump_log_path: str,
     hard_deadline: datetime,
     sky_cache: SkyFieldCache,
+    verbose: bool = False,
 ) -> Tuple[int, bool]:
     """Run SatDump, consume stdout in a thread, stop at scheduled_end.
 
@@ -480,6 +487,9 @@ def run_satdump(
 
                 if line:
                     sd_log.write(line)
+                    if verbose:
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
                     _process_satdump_line(
                         line, sky_cache, config, pass_data, current_state, samples
                     )
@@ -513,6 +523,9 @@ def run_satdump(
                 if line is None or not line:
                     continue
                 sd_log.write(line)
+                if verbose:
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
         except BaseException:
             # Make absolutely sure SatDump doesn't outlive us.
             if proc.poll() is None:
@@ -978,6 +991,7 @@ def main() -> int:
             config, pass_data, pass_output_dir,
             reception_json_path, reception_payload,
             satdump_log_path, hard_deadline, sky_cache,
+            verbose=args.verbose,
         )
     except Exception:
         logger.exception("Unhandled error during SatDump run")
