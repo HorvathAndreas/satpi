@@ -93,6 +93,7 @@ press_enter
 
 section "CONFIGURE LOCALE"
 
+# Note: Hardcoded to en_GB.UTF-8. Modify this section if a different locale is required.
 sudo sed -i 's/^# *en_GB.UTF-8 UTF-8/en_GB.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen
 sudo update-locale LANG=en_GB.UTF-8
@@ -171,7 +172,7 @@ sudo udevadm trigger
 
 press_enter
 
-section "CONFIGURE USB POWER (PI 4 — 1.2 A PER PORT)"
+section "CONFIGURE USB POWER (RASPBERRY PI 4 / 5)"
 
 cat <<'EOT_INFO'
 On Raspberry Pi 4, each USB port is limited to 600 mA by default. RTL-SDR
@@ -228,13 +229,11 @@ mkdir -p "${SATPI_DIR}/systemd/generated"
 
 if [[ -f "$CONFIG_LOCAL" ]]; then
     warn "config.ini already exists. It will not be overwritten."
+elif [[ -f "$CONFIG_EXAMPLE" ]]; then
+    cp "$CONFIG_EXAMPLE" "$CONFIG_LOCAL"
+    info "Created ${CONFIG_LOCAL} from config.example.ini"
 else
-    if [[ -f "$CONFIG_EXAMPLE" ]]; then
-        cp "$CONFIG_EXAMPLE" "$CONFIG_LOCAL"
-        info "Created ${CONFIG_LOCAL} from config.example.ini"
-    else
-        warn "config.example.ini not found: ${CONFIG_EXAMPLE}"
-    fi
+    warn "config.example.ini not found: ${CONFIG_EXAMPLE}"
 fi
 
 press_enter
@@ -265,9 +264,9 @@ cd /usr/local/src
 # VPN or WiFi connection) leave a partially populated .git that breaks
 # subsequent 'git fetch --tags' or 'git checkout' with errors like
 # "fatal: bad object refs/heads/master" or "index file smaller than expected".
-if [[ -d SatDump ]]; then
+if [[ -d /usr/local/src/SatDump ]]; then
     info "Removing existing /usr/local/src/SatDump to start clean..."
-    sudo rm -rf SatDump
+    sudo rm -rf /usr/local/src/SatDump
 fi
 
 git clone https://github.com/SatDump/SatDump.git
@@ -301,7 +300,21 @@ info "SatDump installed."
 
 press_enter
 
-section "CHECK INSTALLED TOOLS"
+section "INITIALIZE RECEPTION DATABASE"
+
+cd "${SATPI_DIR}"
+python3 bin/init_reception_db.py
+
+press_enter
+
+section "VERIFY INSTALLATION"
+
+cd "${SATPI_DIR}"
+python3 bin/init_reception_db.py
+
+press_enter
+
+section "VERIFY INSTALLATION"
 
 for cmd in python3 git curl jq rclone msmtp cmake; do
     if command -v "$cmd" >/dev/null 2>&1; then

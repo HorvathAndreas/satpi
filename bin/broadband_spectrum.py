@@ -1,25 +1,42 @@
 #!/usr/bin/env python3
 """
-broadband_spectrum.py — Plot a broadband spectrum from rtl_power CSV output.
+broadband_spectrum.py — Record and plot a broadband RF spectrum using rtl_power.
+
+Records a wideband spectrum scan using rtl-sdr hardware, then generates
+a matplotlib visualization with band annotations and frequency markers.
 
 Usage:
-    python3 broadband_spectrum.py broadband.csv [options]
+    python3 broadband_spectrum.py --fmin 80MHz --fmax 200MHz [options]
+
+Examples:
+    # Record 80-200 MHz for 5 minutes
+    python3 broadband_spectrum.py --fmin 80MHz --fmax 200MHz --duration 300
+
+    # Record METEOR band (137-138 MHz) for 2 minutes, custom output
+    python3 broadband_spectrum.py --fmin 137MHz --fmax 139MHz --duration 120 -o meteor.png
+
+    # Custom gain and title
+    python3 broadband_spectrum.py --fmin 80MHz --fmax 200MHz --gain 40 --title "VHF Spectrum"
+
+    # Mixed frequency units
+    python3 broadband_spectrum.py --fmin 80000kHz --fmax 0.2GHz --duration 180
 
 Options:
-    -o, --output FILE       Save plot to FILE (default: broadband_spectrum.png)
-    --title TEXT            Custom title (default: auto-generated from CSV timestamp)
-    --fmin MHZ              Minimum frequency to display (default: auto)
-    --fmax MHZ              Maximum frequency to display (default: auto)
-    --ymin DBM              Y-axis minimum in dBm (default: auto)
-    --ymax DBM              Y-axis maximum in dBm (default: auto)
-    --smooth N              Moving-average window size (default: 3)
-    --show                  Display plot interactively (requires display)
-    -h, --help              Show this help message
+    --fmin FREQ         Start frequency (e.g., 80MHz, 80000kHz, 0.08GHz) [required]
+    --fmax FREQ         End frequency (e.g., 200MHz, 200000kHz) [required]
+    --gain GAIN         RTL-SDR gain in dB (default: 38.6)
+    --duration SEC      Recording duration in seconds (default: 300)
+    -o, --output FILE   Output PNG file (default: broadband_spectrum.png)
+    --title TEXT        Custom plot title (default: auto-generated)
+    -h, --help          Show this help message
 """
 
 import argparse
 import csv
+import subprocess
 import sys
+import tempfile
+import os
 import numpy as np
 import matplotlib
 import matplotlib.patches as mpatches
@@ -41,26 +58,117 @@ FREQ_MARKERS = [
 ]
 
 
+def parse_frequency(freq_str: str) -> float:
+    """Parse frequency string with units (Hz, kHz, MHz, GHz) into MHz.
+
+    Examples:
+        "137.9 MHz" → 137.9
+        "137900 kHz" → 137.9
+        "137900000 Hz" → 137.9
+        "0.1379 GHz" → 137.9
+        "80" → 80 (assumes MHz if no unit)
+
+    Returns:
+        Frequency in MHz (float)
+
+    Raises:
+        ValueError: If the frequency string cannot be parsed
+    """
+    freq_str = freq_str.strip().upper().replace(' ', '')
+
+    # Try to extract value and unit
+    for unit in ['GHZ', 'MHZ', 'KHZ', 'HZ']:
+        if freq_str.endswith(unit):
+            try:
+                value = float(freq_str[:-len(unit)])
+                if unit == 'GHZ':
+                    return value * 1000.0
+                elif unit == 'MHZ':
+                    return value
+                elif unit == 'KHZ':
+                    return value / 1000.0
+                elif unit == 'HZ':
+                    return value / 1e6
+            except ValueError:
+                raise ValueError(f"Invalid frequency format: {freq_str}")
+
+    # No unit found — assume MHz
+    try:
+        return float(freq_str)
+    except ValueError:
+        raise ValueError(f"Invalid frequency format: {freq_str}")
+
+
 def parse_args():
     p = argparse.ArgumentParser(
-        description='Plot broadband spectrum from rtl_power CSV.',
+        prog='broadband_spectrum.py',
+        description='Record and plot a broadband RF spectrum using rtl_power.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument('csv', help='Input CSV file (rtl_power format)')
-    p.add_argument('-o', '--output', default=None,
-                   help='Output image file (default: <csv_stem>_spectrum.png)')
-    p.add_argument('--title', default=None, help='Custom plot title')
-    p.add_argument('--fmin', type=float, default=None, help='Min frequency (MHz)')
-    p.add_argument('--fmax', type=float, default=None, help='Max frequency (MHz)')
-    p.add_argument('--ymin', type=float, default=None, help='Y-axis min (dBm)')
-    p.add_argument('--ymax', type=float, default=None, help='Y-axis max (dBm)')
-    p.add_argument('--smooth', type=int, default=3, help='Smoothing window (default: 3)')
-    p.add_argument('--show', action='store_true', help='Show interactive plot')
+    p.add_argument('--fmin', type=parse_frequency, required=True,
+                   help='Start frequency (e.g., 80MHz, 80000kHz, 0.08GHz)')
+    p.add_argument('--fmax', type=parse_frequency, required=True,
+                   help='End frequency (e.g., 200MHz)')
+    p.add_argument('--gain', type=float, default=38.6,
+                   help='RTL-SDR gain in dB (default: 38.6)')
+    p.add_argument('--duration', type=int, default=300, metavar='SECONDS',
+                   help='Recording duration in seconds (default: 300 = 5 minutes)')
+    p.add_argument('-o', '--output', default='broadband_spectrum.png',
+                   help='Output PNG file (default: broadband_spectrum.png)')
+    p.add_argument('--title', default=None,
+                   help='Custom plot title (default: auto-generated)')
     return p.parse_args()
 
 
-def load_csv(path):
+def record_spectrum(fmin_mhz: float, fmax_mhz: float, gain: float, duration: int, csv_path: str) -> bool:
+    """Record broadband spectrum using rtl_power.
+
+    Args:
+        fmin_mhz: Start frequency in MHz
+        fmax_mhz: End frequency in MHz
+        gain: RTL-SDR gain in dB
+        duration: Recording duration in seconds
+        csv_path: Output CSV file path
+
+    Returns:
+        True if successful, False otherwise
+    """
+    # Convert MHz to Hz for rtl_power
+    fmin_hz = int(fmin_mhz * 1e6)
+    fmax_hz = int(fmax_mhz * 1e6)
+    bin_width_hz = 10000  # 10 kHz bins
+
+    # rtl_power format: -f start:stop:step
+    freq_range = f"{fmin_hz}:{fmax_hz}:{bin_width_hz}"
+
+    print(f"Recording {fmin_mhz:.1f}–{fmax_mhz:.1f} MHz for {duration} seconds ({duration//60}m {duration%60}s)...")
+    print(f"  Frequency range: {freq_range}")
+    print(f"  Gain: {gain} dB")
+
+    try:
+        cmd = [
+            'timeout', str(duration),
+            'rtl_power',
+            '-f', freq_range,
+            '-g', str(gain),
+            '-i', '1',
+            csv_path
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(f"Recording complete: {csv_path}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] rtl_power failed: {e}", file=sys.stderr)
+        if e.stderr:
+            print(f"stderr: {e.stderr}", file=sys.stderr)
+        return False
+    except FileNotFoundError:
+        print(f"[ERROR] rtl_power not found. Install with: sudo apt install rtl-sdr", file=sys.stderr)
+        return False
+
+
+def load_csv(path: str):
     """Parse rtl_power CSV into arrays of (freq_mhz, power_dbm)."""
     freqs, powers = [], []
     timestamp = None
@@ -92,25 +200,17 @@ def load_csv(path):
     return freqs[idx], powers[idx], timestamp
 
 
-def smooth(arr, window):
-    if window < 2:
-        return arr
-    return np.convolve(arr, np.ones(window) / window, mode='same')
-
-
 def plot_spectrum(freqs, powers, args, timestamp):
     import matplotlib.pyplot as plt
 
-    powers_smooth = smooth(powers, args.smooth)
-
-    fmin = args.fmin if args.fmin is not None else freqs.min()
-    fmax = args.fmax if args.fmax is not None else freqs.max()
+    fmin = args.fmin
+    fmax = args.fmax
     mask = (freqs >= fmin) & (freqs <= fmax)
 
-    p_visible = powers_smooth[mask]
+    p_visible = powers[mask]
     p_margin = (p_visible.max() - p_visible.min()) * 0.1 if p_visible.size else 5
-    ymin = args.ymin if args.ymin is not None else p_visible.min() - p_margin - 5
-    ymax = args.ymax if args.ymax is not None else p_visible.max() + p_margin + 3
+    ymin = p_visible.min() - p_margin - 5
+    ymax = p_visible.max() + p_margin + 3
 
     title = args.title or f'Broadband Spectrum {fmin:.0f}–{fmax:.0f} MHz\n{timestamp} UTC'
 
@@ -130,25 +230,23 @@ def plot_spectrum(freqs, powers, args, timestamp):
 
     # Raw trace
     ax.plot(freqs[mask], powers[mask], color='#334466', linewidth=0.4, alpha=0.5, zorder=1)
-    # Smoothed trace
-    ax.plot(freqs[mask], powers_smooth[mask], color='#00d4ff', linewidth=1.2, zorder=2)
 
     # FM fill
     fm = mask & (freqs >= 88) & (freqs <= 108)
     if fm.any():
-        ax.fill_between(freqs[fm], ymin, powers_smooth[fm], color='#ff4444', alpha=0.3)
+        ax.fill_between(freqs[fm], ymin, powers[fm], color='#ff4444', alpha=0.3)
 
     # METEOR fill
     meteor = mask & (freqs >= 137) & (freqs <= 138)
     if meteor.any():
-        ax.fill_between(freqs[meteor], ymin, powers_smooth[meteor], color='#44ff88', alpha=0.4)
+        ax.fill_between(freqs[meteor], ymin, powers[meteor], color='#44ff88', alpha=0.4)
 
     # Frequency markers
     for f_mark, label in FREQ_MARKERS:
         if not (fmin <= f_mark <= fmax):
             continue
         idx_m = np.argmin(np.abs(freqs - f_mark))
-        p_at = powers_smooth[idx_m]
+        p_at = powers[idx_m]
         ax.annotate(label,
                     xy=(f_mark, p_at),
                     xytext=(f_mark + (fmax - fmin) * 0.03, p_at + (ymax - ymin) * 0.07),
@@ -183,32 +281,38 @@ def plot_spectrum(freqs, powers, args, timestamp):
 def main():
     args = parse_args()
 
-    if args.show:
-        matplotlib.use('TkAgg')
-    else:
-        matplotlib.use('Agg')
-
+    # Use non-interactive backend for batch processing
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
-    print(f"Loading {args.csv} …")
-    freqs, powers, timestamp = load_csv(args.csv)
-    print(f"  {len(freqs)} data points, {freqs.min():.1f}–{freqs.max():.1f} MHz, timestamp: {timestamp}")
+    # Create temporary CSV file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
+        csv_path = tmp.name
 
-    fig = plot_spectrum(freqs, powers, args, timestamp)
+    try:
+        # Record spectrum
+        if not record_spectrum(args.fmin, args.fmax, args.gain, args.duration, csv_path):
+            return 1
 
-    if args.output:
-        out = args.output
-    else:
-        import os
-        stem = os.path.splitext(os.path.basename(args.csv))[0]
-        out = f"{stem}_spectrum.png"
+        # Load and plot
+        print(f"Loading {csv_path}...")
+        freqs, powers, timestamp = load_csv(csv_path)
+        print(f"  {len(freqs)} data points, {freqs.min():.1f}–{freqs.max():.1f} MHz")
 
-    fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='#1a1a2e')
-    print(f"Saved → {out}")
+        fig = plot_spectrum(freqs, powers, args, timestamp)
 
-    if args.show:
-        plt.show()
+        # Save plot
+        fig.savefig(args.output, dpi=150, bbox_inches='tight', facecolor='#1a1a2e')
+        print(f"Saved → {args.output}")
+
+        return 0
+
+    finally:
+        # Clean up temporary CSV
+        if os.path.exists(csv_path):
+            os.unlink(csv_path)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
+
