@@ -122,24 +122,11 @@ def parse_args():
 
 
 def record_spectrum(fmin_mhz: float, fmax_mhz: float, gain: float, duration: int, csv_path: str) -> bool:
-    """Record broadband spectrum using rtl_power.
-
-    Args:
-        fmin_mhz: Start frequency in MHz
-        fmax_mhz: End frequency in MHz
-        gain: RTL-SDR gain in dB
-        duration: Recording duration in seconds
-        csv_path: Output CSV file path
-
-    Returns:
-        True if successful, False otherwise
-    """
-    # Convert MHz to Hz for rtl_power
+    """Record broadband spectrum using rtl_power."""
     fmin_hz = int(fmin_mhz * 1e6)
     fmax_hz = int(fmax_mhz * 1e6)
     bin_width_hz = 10000  # 10 kHz bins
 
-    # rtl_power format: -f start:stop:step
     freq_range = f"{fmin_hz}:{fmax_hz}:{bin_width_hz}"
 
     print(f"Recording {fmin_mhz:.1f}–{fmax_mhz:.1f} MHz for {duration} seconds ({duration//60}m {duration%60}s)...")
@@ -155,14 +142,15 @@ def record_spectrum(fmin_mhz: float, fmax_mhz: float, gain: float, duration: int
             '-i', '1',
             csv_path
         ]
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Exit code 124 means timeout terminated the process — that's expected
+        if result.returncode not in [0, 124]:
+            print(f"[ERROR] rtl_power failed: exit code {result.returncode}", file=sys.stderr)
+            if result.stderr:
+                print(f"stderr: {result.stderr}", file=sys.stderr)
+            return False
         print(f"Recording complete: {csv_path}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] rtl_power failed: {e}", file=sys.stderr)
-        if e.stderr:
-            print(f"stderr: {e.stderr}", file=sys.stderr)
-        return False
     except FileNotFoundError:
         print(f"[ERROR] rtl_power not found. Install with: sudo apt install rtl-sdr", file=sys.stderr)
         return False

@@ -53,7 +53,7 @@ def load_reception_json(path: Path) -> dict:
 
 
 def find_latest_reception_json(config: dict) -> Path:
-    passes_dir = Path(config["paths"]["output_dir"])
+    passes_dir = Path(config["paths"]["reports_dir"])
 
     if not passes_dir.exists():
         raise FileNotFoundError(f"Passes directory not found: {passes_dir}")
@@ -70,7 +70,7 @@ def find_latest_reception_json(config: dict) -> Path:
     return json_files[0]
 
 def find_reception_json_by_pass_id(config: dict, pass_id: str) -> Path:
-    passes_dir = Path(config["paths"]["output_dir"])
+    passes_dir = Path(config["paths"]["reports_dir"])
     target = passes_dir / pass_id / "reception.json"
 
     if not target.exists():
@@ -163,7 +163,7 @@ def main():
         return 1
 
     model = args.model or ai_cfg["model"] or DEFAULT_MODEL
-    output_file = Path(config["paths"]["optimization_ai_report_file"])
+    output_file = Path(os.path.join(config["paths"]["reports_dir"], "optimization-report-ai.txt"))
     include_optimizer_report = ai_cfg["include_optimizer_report"]
 
     try:

@@ -14,14 +14,16 @@ longitude = 8.0000                    ; station longitude in decimal degrees
 altitude_m = 400                      ; station altitude above sea level in meters
 
 [paths]
-reports_dir = results/reports          ; consolidated reports directory
 base_dir = /home/[YOUR USER NAME]/satpi       ; absolute satpi project root
 
 pass_file = results/passes/passes.json ; predicted passes JSON, relative to base_dir
 log_dir = logs                         ; log directory, relative to base_dir
+output_dir = results/captures          ; capture output directory, relative to base_dir
 generated_units_dir = systemd/generated ; generated systemd unit directory, relative to base_dir
 
 tle_file = results/tle/weather.tle     ; local filtered TLE file, relative to base_dir
+optimization_dir = results/optimization ; optimizer output directory, relative to base_dir
+optimization_ai_report_file = results/optimization/optimization-report-ai.txt ; AI optimizer report file, relative to base_dir
 reception_db_file = results/database/reception.db ; SQLite reception database, relative to base_dir
 
 satdump_bin = /usr/bin/satdump         ; absolute path to SatDump binary

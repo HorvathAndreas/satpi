@@ -56,7 +56,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "paths": {
         "base_dir", "pass_file", "log_dir", "output_dir",
         "generated_units_dir", "tle_file", "optimization_dir",
-        "optimization_ai_report_file", "reception_db_file",
+         "reception_db_file",
         "satdump_bin", "mail_bin", "python_bin",
     },
     "hardware": {"source_id", "gain", "sample_rate", "bias_t"},
@@ -210,11 +210,11 @@ def _parse_paths(p: configparser.ConfigParser) -> Dict[str, Any]:
         "base_dir": base_dir,
         "pass_file": rel("pass_file"),
         "log_dir": rel("log_dir"),
-        "output_dir": rel("output_dir"),
+        "reports_dir": rel("reports_dir"),
         "generated_units_dir": rel("generated_units_dir"),
         "tle_file": rel("tle_file"),
-        "optimization_dir": rel("optimization_dir"),
-        "optimization_ai_report_file": rel("optimization_ai_report_file"),
+        
+        
         "reception_db_file": rel("reception_db_file"),
         "satdump_bin": _resolve_path(base_dir, p.get("paths", "satdump_bin")),
         "mail_bin": _resolve_path(base_dir, p.get("paths", "mail_bin")),

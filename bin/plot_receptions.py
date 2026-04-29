@@ -959,7 +959,7 @@ def main():
 
     db_path = config["paths"]["reception_db_file"]
     reports_dir = os.path.join(config["paths"]["base_dir"], "results", "reports")
-    captures_dir = config["paths"]["output_dir"]
+    captures_dir = config["paths"]["reports_dir"]
 
     filters = build_header_filters(args, config["reception_setup"].keys())
     pass_id_list = build_pass_id_list(args)
