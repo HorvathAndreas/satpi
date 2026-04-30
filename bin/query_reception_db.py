@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # satpi
 # Query SQLite reception database.
+# Parameters: --latest, --satellite, --pass-id, --similar-pass-id, --columns, --show-setup
 
 import argparse
 import os
@@ -8,6 +9,56 @@ import sqlite3
 from typing import Any
 
 from load_config import load_config, ConfigError
+
+# Define which columns to show for each level
+COLUMN_LEVELS = {
+    'minimal': [
+        'pass_id',
+        'satellite',
+        'pass_start',
+        'culmination_elevation_deg',
+        'median_snr_synced'
+    ],
+    'standard': [
+        'pass_id',
+        'satellite',
+        'pass_start',
+        'gain',
+        'culmination_elevation_deg',
+        'direction',
+        'total_deframer_synced_seconds',
+        'median_snr_synced',
+        'median_ber_synced'
+    ],
+    'all': [
+        'pass_id',
+        'satellite',
+        'pipeline',
+        'frequency_hz',
+        'bandwidth_hz',
+        'gain',
+        'source_id',
+        'bias_t',
+        'pass_start',
+        'pass_end',
+        'scheduled_start',
+        'scheduled_end',
+        'sample_count',
+        'visible_sample_count',
+        'aos_azimuth_deg',
+        'culmination_azimuth_deg',
+        'los_azimuth_deg',
+        'culmination_elevation_deg',
+        'direction',
+        'first_deframer_sync_delay_seconds',
+        'total_deframer_synced_seconds',
+        'sync_drop_count',
+        'median_snr_synced',
+        'median_ber_synced',
+        'peak_snr_db',
+        'imported_at'
+    ]
+}
 
 
 def parse_args():
@@ -42,13 +93,13 @@ def parse_args():
         "--max-elevation-delta",
         type=float,
         default=10.0,
-        help="Maximum allowed delta for max_elevation_deg",
+        help="Maximum allowed delta for culmination_elevation_deg",
     )
     parser.add_argument(
         "--max-mid-azimuth-delta",
         type=float,
         default=20.0,
-        help="Maximum allowed delta for mid_azimuth_deg",
+        help="Maximum allowed delta for culmination_azimuth_deg",
     )
     parser.add_argument(
         "--same-direction-only",
@@ -56,9 +107,15 @@ def parse_args():
         help="Require same direction for similar-pass search",
     )
     parser.add_argument(
+        "--columns",
+        choices=['minimal', 'standard', 'all'],
+        default='standard',
+        help="Number of columns to display (minimal, standard, all)",
+    )
+    parser.add_argument(
         "--show-setup",
         action="store_true",
-        help="Include setup columns in latest/satellite output",
+        help="Include setup columns in output",
     )
     return parser.parse_args()
 
@@ -75,21 +132,43 @@ def open_db(db_path: str) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def angular_delta_deg(a: float | None, b: float | None) -> float | None:
     if a is None or b is None:
         return None
     diff = abs(a - b) % 360.0
     return min(diff, 360.0 - diff)
 
-def print_rows(rows: list[Any]) -> None:
+
+def filter_columns(row: sqlite3.Row, columns: list[str]) -> dict[str, Any]:
+    """Extract only specified columns from a row"""
+    filtered = {}
+    for col in columns:
+        if col in row.keys():
+            filtered[col] = row[col]
+        else:
+            filtered[col] = None
+    return filtered
+
+
+def print_rows(rows: list[Any], columns: list[str] | None = None) -> None:
     if not rows:
         print("[query_reception_db] no rows")
         return
 
-    headers = list(rows[0].keys())
+    # If columns not specified, use all available columns from first row
+    if columns is None:
+        columns = list(rows[0].keys())
+
+    # Filter rows to only requested columns
+    filtered_rows = []
+    for row in rows:
+        filtered_rows.append(filter_columns(row, columns))
+
+    headers = columns
     widths: dict[str, int] = {h: len(h) for h in headers}
 
-    for row in rows:
+    for row in filtered_rows:
         for h in headers:
             value = "" if row[h] is None else str(row[h])
             widths[h] = max(widths[h], len(value))
@@ -100,41 +179,27 @@ def print_rows(rows: list[Any]) -> None:
     print(header_line)
     print(sep_line)
 
-    for row in rows:
+    for row in filtered_rows:
         print(" | ".join(("" if row[h] is None else str(row[h])).ljust(widths[h]) for h in headers))
 
 
-def query_latest(conn: sqlite3.Connection, limit: int, satellite: str | None, show_setup: bool) -> list[sqlite3.Row]:
+def query_latest(conn: sqlite3.Connection, limit: int, satellite: str | None, columns: list[str], show_setup: bool) -> list[sqlite3.Row]:
+    # Build base column list from pass_header
+    pass_cols = [col for col in columns if col not in ['antenna_type', 'antenna_location', 'antenna_orientation', 'lna', 'rf_filter', 'feedline', 'raspberry_pi', 'power_supply', 'additional_info', 'sdr']]
+
+    col_list = ", ".join(f"h.{col}" for col in pass_cols)
+
     if show_setup:
-        sql = """
-        SELECT
-            h.pass_id,
-            h.satellite,
-            h.pass_start,
-            h.gain,
-            h.max_elevation_deg,
-            h.total_deframer_synced_seconds,
-            h.median_snr_synced,
-            h.median_ber_synced,
-            s.antenna_type,
-            s.antenna_location,
-            s.feedline,
-            s.raspberry_pi,
-            s.power_supply
+        setup_cols = ['antenna_type', 'antenna_location', 'feedline', 'raspberry_pi', 'power_supply']
+        col_list += ", " + ", ".join(f"s.{col}" for col in setup_cols)
+        sql = f"""
+        SELECT {col_list}
         FROM pass_header h
         JOIN setup s ON h.setup_id = s.setup_id
         """
     else:
-        sql = """
-        SELECT
-            h.pass_id,
-            h.satellite,
-            h.pass_start,
-            h.gain,
-            h.culmination_elevation_deg,
-            h.total_deframer_synced_seconds,
-            h.median_snr_synced,
-            h.median_ber_synced
+        sql = f"""
+        SELECT {col_list}
         FROM pass_header h
         """
 
@@ -167,10 +232,10 @@ def query_pass_id(conn: sqlite3.Connection, pass_id: str) -> list[sqlite3.Row]:
         h.scheduled_end,
         h.sample_count,
         h.visible_sample_count,
-        h.start_azimuth_deg,
-        h.mid_azimuth_deg,
-        h.end_azimuth_deg,
-        h.max_elevation_deg,
+        h.aos_azimuth_deg,
+        h.culmination_azimuth_deg,
+        h.los_azimuth_deg,
+        h.culmination_elevation_deg,
         h.direction,
         h.first_deframer_sync_delay_seconds,
         h.total_deframer_synced_seconds,
@@ -187,12 +252,14 @@ def query_pass_id(conn: sqlite3.Connection, pass_id: str) -> list[sqlite3.Row]:
         s.feedline,
         s.raspberry_pi,
         s.power_supply,
-        s.additional_info
+        s.additional_info,
+        s.sdr
     FROM pass_header h
     JOIN setup s ON h.setup_id = s.setup_id
     WHERE h.pass_id = ?
     """
     return list(conn.execute(sql, (pass_id,)).fetchall())
+
 
 def query_similar_passes(
     conn: sqlite3.Connection,
@@ -200,6 +267,7 @@ def query_similar_passes(
     max_elevation_delta: float,
     max_mid_azimuth_delta: float,
     same_direction_only: bool,
+    columns: list[str],
 ) -> list[dict[str, Any]]:
     ref_sql = """
     SELECT
@@ -208,8 +276,8 @@ def query_similar_passes(
         h.pipeline,
         h.pass_start,
         h.gain,
-        h.max_elevation_deg,
-        h.mid_azimuth_deg,
+        h.culmination_elevation_deg,
+        h.culmination_azimuth_deg,
         h.direction
     FROM pass_header h
     WHERE h.pass_id = ?
@@ -225,8 +293,8 @@ def query_similar_passes(
         h.satellite,
         h.pass_start,
         h.gain,
-        h.max_elevation_deg,
-        h.mid_azimuth_deg,
+        h.culmination_elevation_deg,
+        h.culmination_azimuth_deg,
         h.direction,
         h.total_deframer_synced_seconds,
         h.median_snr_synced,
@@ -235,7 +303,7 @@ def query_similar_passes(
         s.antenna_location,
         s.feedline,
         s.raspberry_pi,
-       s.power_supply
+        s.power_supply
     FROM pass_header h
     JOIN setup s ON h.setup_id = s.setup_id
     WHERE h.pass_id != ?
@@ -249,16 +317,16 @@ def query_similar_passes(
     filtered: list[dict[str, Any]] = []
 
     for row in candidates:
-        if ref["max_elevation_deg"] is None or row["max_elevation_deg"] is None:
+        if ref["culmination_elevation_deg"] is None or row["culmination_elevation_deg"] is None:
             continue
 
-        elevation_delta = abs(float(row["max_elevation_deg"]) - float(ref["max_elevation_deg"]))
+        elevation_delta = abs(float(row["culmination_elevation_deg"]) - float(ref["culmination_elevation_deg"]))
         if elevation_delta > max_elevation_delta:
             continue
 
         mid_delta = angular_delta_deg(
-            float(ref["mid_azimuth_deg"]) if ref["mid_azimuth_deg"] is not None else None,
-            float(row["mid_azimuth_deg"]) if row["mid_azimuth_deg"] is not None else None,
+            float(ref["culmination_azimuth_deg"]) if ref["culmination_azimuth_deg"] is not None else None,
+            float(row["culmination_azimuth_deg"]) if row["culmination_azimuth_deg"] is not None else None,
         )
         if mid_delta is None or mid_delta > max_mid_azimuth_delta:
             continue
@@ -272,8 +340,8 @@ def query_similar_passes(
                 "satellite": row["satellite"],
                 "pass_start": row["pass_start"],
                 "gain": row["gain"],
-                "max_elevation_deg": row["max_elevation_deg"],
-                "mid_azimuth_deg": row["mid_azimuth_deg"],
+                "culmination_elevation_deg": row["culmination_elevation_deg"],
+                "culmination_azimuth_deg": row["culmination_azimuth_deg"],
                 "direction": row["direction"],
                 "total_deframer_synced_seconds": row["total_deframer_synced_seconds"],
                 "median_snr_synced": row["median_snr_synced"],
@@ -284,18 +352,19 @@ def query_similar_passes(
                 "raspberry_pi": row["raspberry_pi"],
                 "power_supply": row["power_supply"],
                 "elevation_delta_deg": elevation_delta,
-                "mid_azimuth_delta_deg": mid_delta,
+                "azimuth_delta_deg": mid_delta,
             }
         )
 
     filtered.sort(
         key=lambda r: (
             r["elevation_delta_deg"],
-            r["mid_azimuth_delta_deg"],
+            r["azimuth_delta_deg"],
             r["pass_start"],
         )
     )
     return filtered
+
 
 def main() -> int:
     args = parse_args()
@@ -315,6 +384,8 @@ def main() -> int:
 
     conn = open_db(db_path)
     try:
+        columns = COLUMN_LEVELS[args.columns]
+
         if args.pass_id:
             rows = query_pass_id(conn, args.pass_id)
             print_rows(rows)
@@ -327,13 +398,14 @@ def main() -> int:
                 args.max_elevation_delta,
                 args.max_mid_azimuth_delta,
                 args.same_direction_only,
+                columns,
             )
-            print_rows(rows)
+            print_rows(rows, columns)
             return 0
 
         limit = args.latest if args.latest is not None else 10
-        rows = query_latest(conn, limit, args.satellite, args.show_setup)
-        print_rows(rows)
+        rows = query_latest(conn, limit, args.satellite, columns, args.show_setup)
+        print_rows(rows, columns)
         return 0
     finally:
         conn.close()
