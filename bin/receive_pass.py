@@ -852,27 +852,24 @@ def build_interactive_pass_data(
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
     """Build pass data from interactive command-line arguments.
-    
     Used when --pass-file is not provided.
     """
-    from load_config import _parse_frequency, _parse_bandwidth
-    
-    # Parse frequency and bandwidth with flexible formats
+    from parse_frequency import parse_frequency
+
     try:
-        frequency_hz = _parse_frequency(args.frequency)
+        frequency_hz = parse_frequency(args.frequency)
     except ValueError as e:
         raise ValueError(f"Invalid frequency: {e}")
-    
+
     try:
-        bandwidth_hz = _parse_bandwidth(args.bandwidth)
+        bandwidth_hz = parse_frequency(args.bandwidth)
     except ValueError as e:
         raise ValueError(f"Invalid bandwidth: {e}")
-    
     # Build time range
     now = datetime.now(timezone.utc)
     start_time = now
     end_time = now + timedelta(minutes=args.duration)
-    
+
     return {
         "satellite": args.satellite,
         "frequency_hz": frequency_hz,

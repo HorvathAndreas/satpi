@@ -38,7 +38,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "station": {"name", "timezone"},
     "qth": {"latitude", "longitude", "altitude_m"},
     "paths": {
-        "base_dir", "lib_dir", "pass_file", "log_dir", "reports_dir",
+        "base_dir", "output_dir", "lib_dir", "pass_file", "log_dir", "reports_dir",
         "generated_units_dir", "tle_file", "reception_db_file",
         "satdump_bin", "mail_bin", "python_bin",
     },
@@ -217,6 +217,7 @@ def _parse_paths(p: configparser.ConfigParser) -> Dict[str, Any]:
     return {
         "base_dir": base_dir,
         "lib_dir": rel("lib_dir", fallback="lib"),
+        "output_dir": rel("output_dir", fallback="results/passes"),
         "pass_file": rel("pass_file", fallback="results/passes/passes.json"),
         "log_dir": rel("log_dir", fallback="logs"),
         "reports_dir": rel("reports_dir", fallback="results/reports"),
