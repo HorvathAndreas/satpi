@@ -23,3 +23,5 @@ bin/output/
 
 # Local-only project rules for Claude — never publish
 /CLAUDE.md
+config/*.backup.*
+results/generated_units/
