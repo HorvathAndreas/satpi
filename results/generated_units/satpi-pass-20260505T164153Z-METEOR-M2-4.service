@@ -1,0 +1,10 @@
+[Unit]
+Description=SATPI pass receiver for METEOR-M2 4 (north_to_south) at 2026-05-05T16:41:53Z
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=andreas
+WorkingDirectory=/home/andreas/satpi
+ExecStart=/usr/bin/python3 /home/andreas/satpi/bin/receive_pass.py --pass-file /home/andreas/satpi/results/generated_units/satpi-pass-20260505T164153Z-METEOR-M2-4.pass.json

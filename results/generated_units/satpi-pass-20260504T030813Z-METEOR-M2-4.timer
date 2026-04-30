@@ -1,0 +1,10 @@
+[Unit]
+Description=SATPI timer for METEOR-M2 4 (south_to_north) at 2026-05-04T03:08:13Z
+
+[Timer]
+OnCalendar=2026-05-04 03:08:13 UTC
+Persistent=true
+Unit=satpi-pass-20260504T030813Z-METEOR-M2-4.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+{
+  "satellite": "METEOR-M2 4",
+  "frequency_hz": 137900000,
+  "bandwidth_hz": 1000000,
+  "pipeline": "meteor_m2-x_lrpt",
+  "start": "2026-04-30T17:05:01Z",
+  "end": "2026-04-30T17:17:02Z",
+  "scheduled_start": "2026-04-30T17:03:01Z",
+  "scheduled_end": "2026-04-30T17:19:02Z",
+  "max_elevation": 31.17,
+  "max_elevation_time": "2026-04-30T17:11:04Z",
+  "aos_azimuth_deg": 4.13,
+  "los_azimuth_deg": 220.31,
+  "direction": "north_to_south"
+}

@@ -18,45 +18,28 @@ import configparser
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+
+from parse_frequency import parse_frequency
 
 class ConfigError(Exception):
     pass
 
+_parse_frequency = parse_frequency
 
+# --- Known keys (for drift detection) ---------------------------------------
 
-def _parse_bandwidth(value: str) -> int:
-    """Parse bandwidth from various formats (Hz, kHz, MHz) to Hz.
-
-    Accepts: "1000000", "1000 kHz", "1000kHz", "1 MHz", "1.2MHz"
-    Returns: bandwidth in Hz
-    """
-    value = value.strip()
-
-    # Try to parse with suffix
-    for suffix, multiplier in [("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
-        # Case-insensitive check
-        if value.upper().endswith(suffix.upper()):
-            try:
-                num_str = value[:-len(suffix)].strip()
-                return int(float(num_str) * multiplier)
-            except ValueError:
-                pass
-
-    # Try to parse as plain number (assume Hz)
-    try:
-        return int(float(value))
-    except ValueError:
-        raise ValueError(f"Invalid bandwidth format: {value}")
-
+# Keys this parser actually reads, per section. Extra keys in the INI trigger
+# a warning via ConfigError so that dead config or typos get surfaced.
 KNOWN_KEYS: Dict[str, Set[str]] = {
     "station": {"name", "timezone"},
     "qth": {"latitude", "longitude", "altitude_m"},
     "paths": {
-        "base_dir", "pass_file", "log_dir", "output_dir",
-        "generated_units_dir", "tle_file", "optimization_dir",
-         "reception_db_file",
+        "base_dir", "lib_dir", "pass_file", "log_dir", "reports_dir",
+        "generated_units_dir", "tle_file", "reception_db_file",
         "satdump_bin", "mail_bin", "python_bin",
     },
     "hardware": {"source_id", "gain", "sample_rate", "bias_t"},
@@ -66,7 +49,9 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
     "network": {"tle_url", "tle_timeout_seconds", "api_key", "tle_format"},
     "decode": {"min_cadu_size_bytes", "success_dir_relpath"},
-    "copytarget": {"enabled", "type", "rclone_remote", "rclone_path", "create_link"},
+    "copytarget": {
+        "enabled", "type", "rclone_remote", "rclone_path", "create_link",
+    },
     "notify": {"enabled", "mail_to", "mail_subject_prefix"},
     "systemd": {"service_user"},
     "reception_setup": {
@@ -86,10 +71,6 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
         "elevation_band_4_max", "elevation_band_5_max",
         "output_dir",
     },
-    "optimize_reception_ai": {
-        "enabled", "max_passes", "model", "include_optimizer_report",
-        "temperature", "api_key",
-    },
     "noise_floor": {
         "measurement_duration", "schedule_minute",
         "center_freq", "bandwidth", "bin_size",
@@ -98,13 +79,15 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
 }
 
+# Satellite section keys (dynamic section names)
 SATELLITE_KEYS: Set[str] = {
-    "enabled", "min_elevation_deg", "frequency", "bandwidth",
-    "pipeline", "pass_direction", "norad_id",
+    "enabled", "norad_id", "min_elevation_deg", "frequency", "bandwidth",
+    "pipeline", "pass_direction",
 }
 
 VALID_DIRECTIONS: Set[str] = {
-    "all", "north_to_south", "south_to_north",
+    "all",
+    "north_to_south", "south_to_north",
     "west_to_east", "east_to_west",
     "southwest_to_northeast", "southeast_to_northwest",
     "northwest_to_southeast", "northeast_to_southwest",
@@ -116,6 +99,8 @@ VALID_WEEKDAYS: Set[str] = {
     "FRIDAY", "SATURDAY", "SUNDAY",
 }
 
+
+# --- Helpers ----------------------------------------------------------------
 
 def _resolve_path(base_dir: str, value: str) -> str:
     value = value.strip()
@@ -136,13 +121,21 @@ def _check_unknown_keys(parser: configparser.ConfigParser, errors: List[str]) ->
         actual = set(parser.options(section))
         extra = actual - allowed
         if extra:
-            errors.append(f"Unknown keys in [{section}]: {', '.join(sorted(extra))}")
+            errors.append(
+                f"Unknown keys in [{section}]: {', '.join(sorted(extra))}"
+            )
 
+
+# --- Public entry point ------------------------------------------------------
 
 def load_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
-        raise ConfigError(f"Config file not found: {path}")
+        raise ConfigError(
+            f"Config file not found: {path}\n"
+            f"Use --config to specify a different path."
+        )
 
+    # interpolation=None avoids '%(x)s' surprises in URLs/paths.
     parser = configparser.ConfigParser(
         inline_comment_prefixes=(";", "#"),
         interpolation=None,
@@ -173,20 +166,25 @@ def load_config(path: str) -> Dict[str, Any]:
         cfg["systemd"] = _parse_systemd(parser)
         cfg["reception_setup"] = _parse_reception_setup(parser)
         cfg["optimize_reception"] = _parse_optimize_reception(parser)
-        cfg["optimize_reception_ai"] = _parse_optimize_reception_ai(parser)
         if parser.has_section("noise_floor"):
             cfg["noise_floor"] = _parse_noise_floor(parser)
-    except Exception as e:
-        errors.append(f"Error: {e}")
+    except configparser.NoOptionError as e:
+        errors.append(f"Missing required option: {e}")
+    except configparser.NoSectionError as e:
+        errors.append(f"Missing required section: {e}")
+    except ValueError as e:
+        errors.append(f"Invalid value in config: {e}")
 
     _validate_config(cfg, errors)
 
     if errors:
         joined = "\n  - ".join(errors)
-        raise ConfigError(f"Config problems:\n  - {joined}")
+        raise ConfigError(f"Config problems in {path}:\n  - {joined}")
 
     return cfg
 
+
+# --- Section parsers ---------------------------------------------------------
 
 def _parse_station(p: configparser.ConfigParser) -> Dict[str, Any]:
     return {
@@ -199,26 +197,35 @@ def _parse_qth(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any
     lat = p.getfloat("qth", "latitude")
     lon = p.getfloat("qth", "longitude")
     alt = p.getfloat("qth", "altitude_m", fallback=0.0)
+
+    if not -90.0 <= lat <= 90.0:
+        errors.append(f"qth.latitude {lat} is out of range (-90..90)")
+    if not -180.0 <= lon <= 180.0:
+        errors.append(f"qth.longitude {lon} is out of range (-180..180)")
+    if alt < -500 or alt > 9000:
+        errors.append(f"qth.altitude_m {alt} looks implausible")
+
     return {"latitude": lat, "longitude": lon, "altitude": alt}
 
 
 def _parse_paths(p: configparser.ConfigParser) -> Dict[str, Any]:
     base_dir = os.path.abspath(p.get("paths", "base_dir").strip())
-    def rel(key: str) -> str:
-        return _resolve_path(base_dir, p.get("paths", key))
+
+    def rel(key: str, fallback: str = "") -> str:
+        return _resolve_path(base_dir, p.get("paths", key, fallback=fallback))
+
     return {
         "base_dir": base_dir,
-        "pass_file": rel("pass_file"),
-        "log_dir": rel("log_dir"),
-        "reports_dir": rel("reports_dir"),
-        "generated_units_dir": rel("generated_units_dir"),
-        "tle_file": rel("tle_file"),
-        
-        
-        "reception_db_file": rel("reception_db_file"),
-        "satdump_bin": _resolve_path(base_dir, p.get("paths", "satdump_bin")),
-        "mail_bin": _resolve_path(base_dir, p.get("paths", "mail_bin")),
-        "python_bin": _resolve_path(base_dir, p.get("paths", "python_bin")),
+        "lib_dir": rel("lib_dir", fallback="lib"),
+        "pass_file": rel("pass_file", fallback="results/passes/passes.json"),
+        "log_dir": rel("log_dir", fallback="logs"),
+        "reports_dir": rel("reports_dir", fallback="results/reports"),
+        "generated_units_dir": rel("generated_units_dir", fallback="results/generated_units"),
+        "tle_file": rel("tle_file", fallback="results/tle/weather.tle"),
+        "reception_db_file": rel("reception_db_file", fallback="results/database/reception.db"),
+        "satdump_bin": _resolve_path(base_dir, p.get("paths", "satdump_bin", fallback="/usr/bin/satdump")),
+        "mail_bin": _resolve_path(base_dir, p.get("paths", "mail_bin", fallback="/usr/bin/msmtp")),
+        "python_bin": _resolve_path(base_dir, p.get("paths", "python_bin", fallback="/usr/bin/python3")),
     }
 
 
@@ -231,120 +238,92 @@ def _parse_hardware(p: configparser.ConfigParser) -> Dict[str, Any]:
     }
 
 
-
-def _parse_frequency(value: str) -> int:
-    """Parse frequency from various formats (Hz, kHz, MHz, GHz) to Hz.
-
-    Accepts: "137900000", "137.9 MHz", "137900 kHz", "0.1379 GHz"
-    Returns: frequency in Hz
-    """
-    value = value.strip()
-
-    # Try to parse with suffix
-    for suffix, multiplier in [("GHz", 1_000_000_000), ("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
-        # Case-insensitive check
-        if value.upper().endswith(suffix.upper()):
-            try:
-                num_str = value[:-len(suffix)].strip()
-                return int(float(num_str) * multiplier)
-            except ValueError:
-                pass
-
-    # Try to parse as plain number (assume Hz)
-    try:
-        return int(float(value))
-    except ValueError:
-        raise ValueError(f"Invalid frequency format: {value}")
-
-
-
-def _parse_size(value: str) -> float:
-    """Parse size from various formats (Hz, kHz, MHz) and return in kHz.
-
-    Used for bin_size and similar parameters that are typically in kHz.
-    Accepts: "10", "10 kHz", "10kHz", "0.01 MHz", "10000 Hz"
-    Returns: size in kHz
-    """
-    value = str(value).strip()
-
-    # Try to parse with suffix
-    for suffix, multiplier_hz in [("MHz", 1_000_000), ("kHz", 1_000), ("Hz", 1)]:
-        # Case-insensitive check
-        if value.upper().endswith(suffix.upper()):
-            try:
-                num_str = value[:-len(suffix)].strip()
-                hz = float(num_str) * multiplier_hz
-                return hz / 1_000  # Convert to kHz
-            except ValueError:
-                pass
-
-    # Try to parse as plain number (assume kHz for bin_size context)
-    try:
-        return float(value)
-    except ValueError:
-        raise ValueError(f"Invalid size format: {value}")
-
-
-def _parse_satellites(p: configparser.ConfigParser, errors: List[str]) -> List[Dict[str, Any]]:
+def _parse_satellites(
+    p: configparser.ConfigParser, errors: List[str]
+) -> List[Dict[str, Any]]:
     satellites: List[Dict[str, Any]] = []
     for section in p.sections():
         if not section.startswith("satellite."):
             continue
         name = section.split(".", 1)[1]
         s = p[section]
+
         try:
-            freq_str = s.get("frequency", s.get("frequency_hz", ""))
+            # Parse frequency (supports units: MHz, kHz, GHz, Hz)
+            freq_str = s.get("frequency", "").strip()
             if not freq_str:
                 errors.append(f"satellite '{name}': frequency is required")
                 continue
             try:
-                freq = _parse_frequency(freq_str)
+                frequency_hz = _parse_frequency(freq_str)
             except ValueError as e:
                 errors.append(f"satellite '{name}': {e}")
                 continue
-            bw_str = s.get("bandwidth", s.get("bandwidth_hz", ""))
+
+            # Parse bandwidth (supports units: MHz, kHz, Hz)
+            bw_str = s.get("bandwidth", "").strip()
             if not bw_str:
                 errors.append(f"satellite '{name}': bandwidth is required")
                 continue
             try:
-                bw = _parse_bandwidth(bw_str)
+                bandwidth_hz = _parse_frequency(bw_str)
             except ValueError as e:
                 errors.append(f"satellite '{name}': {e}")
                 continue
-            pipeline = s.get("pipeline")
+
+            # Parse pipeline
+            pipeline = s.get("pipeline", "").strip()
+            if not pipeline:
+                errors.append(f"satellite '{name}': pipeline is required")
+                continue
+
+            # Parse pass_direction
+            direction = s.get("pass_direction", "all").strip().lower()
+            if direction not in VALID_DIRECTIONS:
+                errors.append(f"satellite '{name}': invalid pass_direction '{direction}'")
+                direction = "all"
+
+            # Parse other fields
+            enabled = s.getboolean("enabled", fallback=True)
+            min_elevation = s.getint("min_elevation_deg", fallback=0)
+            norad_id = s.getint("norad_id", fallback=0)
+
+            satellites.append({
+                "name": name,
+                "enabled": enabled,
+                "norad_id": norad_id,
+                "min_elevation": min_elevation,
+                "frequency": frequency_hz,
+                "bandwidth": bandwidth_hz,
+                "pipeline": pipeline,
+                "pass_direction": direction,
+            })
+
         except (configparser.NoOptionError, ValueError) as e:
             errors.append(f"satellite '{name}': {e}")
             continue
-        if pipeline is None or not pipeline.strip():
-            errors.append(f"satellite '{name}': pipeline is required")
-            continue
-        direction = s.get("pass_direction", fallback="all").strip().lower()
-        satellites.append({
-            "name": name,
-            "enabled": s.getboolean("enabled", fallback=True),
-            "min_elevation": s.getint("min_elevation_deg", fallback=0),
-            "frequency": freq,
-            "bandwidth": bw,
-            "pipeline": pipeline.strip(),
-            "pass_direction": direction,
-            "norad_id": s.getint("norad_id", fallback=0),
-        })
+
     return satellites
 
 
 def _parse_scheduling(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any]:
-    window = p.getint("scheduling", "pass_max_prediction_hours", fallback=24)
-    pre_start = p.getint("scheduling", "pre_start_seconds", fallback=120)
-    post_stop = p.getint("scheduling", "post_stop_seconds", fallback=60)
     freq = p.get("scheduling", "pass_update_frequency", fallback="DAILY").strip().upper()
+    if freq not in VALID_SCHEDULING_FREQUENCIES:
+        errors.append(f"[scheduling] pass_update_frequency must be HOURLY, DAILY, or WEEKLY, got '{freq}'")
+        freq = "DAILY"
+
     wday = p.get("scheduling", "pass_update_weekday", fallback="MONDAY").strip().upper()
+    if wday not in VALID_WEEKDAYS:
+        errors.append(f"[scheduling] pass_update_weekday must be a valid weekday, got '{wday}'")
+        wday = "MONDAY"
+
     return {
         "frequency": freq,
         "time": p.get("scheduling", "pass_update_time", fallback="00:00"),
         "weekday": wday,
-        "pre_start": pre_start,
-        "post_stop": post_stop,
-        "pass_max_prediction_hours": window,
+        "pre_start": p.getint("scheduling", "pre_start_seconds", fallback=120),
+        "post_stop": p.getint("scheduling", "post_stop_seconds", fallback=60),
+        "pass_max_prediction_hours": p.getint("scheduling", "pass_max_prediction_hours", fallback=168),
     }
 
 
@@ -352,13 +331,22 @@ def _parse_network(p: configparser.ConfigParser, errors: List[str]) -> Dict[str,
     url = p.get("network", "tle_url").strip()
     timeout = p.getint("network", "tle_timeout_seconds", fallback=30)
     api_key = p.get("network", "api_key", fallback="").strip()
+
+    # Fall back to environment variable if not in config
     if not api_key:
         api_key = os.environ.get("SATPI_N2YO_API_KEY") or ""
+
     tle_format = p.get("network", "tle_format", fallback="TXT").upper()
     if tle_format not in ("TXT", "JSON"):
         errors.append(f"[network] tle_format must be 'TXT' or 'JSON', got '{tle_format}'")
         tle_format = "TXT"
-    return {"tle_url": url, "tle_timeout": timeout, "api_key": api_key, "tle_format": tle_format}
+
+    return {
+        "tle_url": url,
+        "tle_timeout": timeout,
+        "api_key": api_key,
+        "tle_format": tle_format,
+    }
 
 
 def _parse_decode(p: configparser.ConfigParser) -> Dict[str, Any]:
@@ -394,17 +382,21 @@ def _parse_systemd(p: configparser.ConfigParser) -> Dict[str, Any]:
 
 
 def _parse_reception_setup(p: configparser.ConfigParser) -> Dict[str, Any]:
-    keys = ["antenna_type", "antenna_location", "antenna_orientation",
-            "lna", "rf_filter", "feedline", "sdr", "raspberry_pi",
-            "power_supply", "additional_info"]
+    keys = [
+        "antenna_type", "antenna_location", "antenna_orientation",
+        "lna", "rf_filter", "feedline", "sdr", "raspberry_pi",
+        "power_supply", "additional_info",
+    ]
     return {k: p.get("reception_setup", k, fallback="") for k in keys}
 
 
 def _parse_optimize_reception(p: configparser.ConfigParser) -> Dict[str, Any]:
     def f(key: str, default: float) -> float:
         return p.getfloat("optimize_reception", key, fallback=default)
+
     def i(key: str, default: int) -> int:
         return p.getint("optimize_reception", key, fallback=default)
+
     return {
         "enabled": p.getboolean("optimize_reception", "enabled", fallback=False),
         "max_delta_aos_azimuth": f("max_delta_aos_azimuth", 20.0),
@@ -426,27 +418,28 @@ def _parse_optimize_reception(p: configparser.ConfigParser) -> Dict[str, Any]:
     }
 
 
-def _parse_optimize_reception_ai(p: configparser.ConfigParser) -> Dict[str, Any]:
-    api_key = p.get("optimize_reception_ai", "api_key", fallback="").strip()
-    if not api_key:
-        api_key = os.environ.get("SATPI_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
-    return {
-        "enabled": p.getboolean("optimize_reception_ai", "enabled", fallback=False),
-        "max_passes": p.getint("optimize_reception_ai", "max_passes", fallback=25),
-        "model": p.get("optimize_reception_ai", "model", fallback="gpt-5"),
-        "include_optimizer_report": p.getboolean("optimize_reception_ai", "include_optimizer_report", fallback=True),
-        "temperature": p.getfloat("optimize_reception_ai", "temperature", fallback=1.0),
-        "api_key": api_key,
-    }
-
-
 def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
+    # Parse center_freq, bandwidth, and bin_size with flexible units
+    center_freq_hz = _parse_frequency(p.get("noise_floor", "center_freq", fallback="137.9 MHz"))
+    bandwidth_hz = _parse_frequency(p.get("noise_floor", "bandwidth", fallback="0.4 MHz"))
+    bin_size_khz = _parse_frequency(p.get("noise_floor", "bin_size", fallback="10 kHz"))
+
+    # Parse optional freq_start and freq_end if present
+    freq_start = None
+    freq_end = None
+    if p.has_option("noise_floor", "freq_start"):
+        freq_start = _parse_frequency(p.get("noise_floor", "freq_start").strip())
+    if p.has_option("noise_floor", "freq_end"):
+        freq_end = _parse_frequency(p.get("noise_floor", "freq_end").strip())
+
     return {
         "measurement_duration": p.getint("noise_floor", "measurement_duration", fallback=600),
         "schedule_minute": p.getint("noise_floor", "schedule_minute", fallback=0),
-        "center_freq": _parse_frequency(p.get("noise_floor", "center_freq", fallback="137.9 MHz")),
-        "bandwidth": _parse_bandwidth(p.get("noise_floor", "bandwidth", fallback="0.4 MHz")),
-        "bin_size": _parse_size(p.get("noise_floor", "bin_size", fallback="10 kHz")),
+        "center_freq_hz": center_freq_hz,
+        "bandwidth_hz": bandwidth_hz,
+        "bin_size_khz": bin_size_khz,
+        "freq_start_hz": freq_start,
+        "freq_end_hz": freq_end,
         "upload_enabled": p.getboolean("noise_floor", "upload_enabled", fallback=False),
         "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
         "rclone_path": p.get("noise_floor", "rclone_path", fallback=""),
@@ -459,6 +452,8 @@ def _validate_config(cfg: Dict[str, Any], errors: List[str]) -> None:
     if not satellites:
         errors.append("No satellites defined")
 
+
+# --- CLI interface ----------------------------------------------------------
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -485,6 +480,7 @@ EXAMPLES:
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
+    config_path = args.config
 
     if args.key and not args.section:
         parser.error("--key requires --section")
@@ -494,16 +490,20 @@ EXAMPLES:
         sys.exit(1)
 
     try:
-        cfg = load_config(args.config)
-        
+        cfg = load_config(config_path)
+        sys.path.insert(0, cfg["paths"]["lib_dir"])
+        from parse_frequency import parse_frequency
         if args.section:
             if args.key:
                 if args.section in cfg and isinstance(cfg[args.section], dict):
                     if args.key in cfg[args.section]:
                         print(cfg[args.section][args.key])
                     else:
-                        print(f"Error: Key '{args.key}' not found", file=sys.stderr)
+                        print(f"Error: Key '{args.key}' not found in [{args.section}]", file=sys.stderr)
                         sys.exit(1)
+                else:
+                    print(f"Error: Section '{args.section}' not found or is not a dict", file=sys.stderr)
+                    sys.exit(1)
             else:
                 if args.section in cfg:
                     if args.json:
@@ -512,6 +512,12 @@ EXAMPLES:
                         if isinstance(cfg[args.section], dict):
                             for k, v in cfg[args.section].items():
                                 print(f"{k} = {v}")
+                        elif isinstance(cfg[args.section], list):
+                            for item in cfg[args.section]:
+                                print(item)
+                else:
+                    print(f"Error: Section '{args.section}' not found", file=sys.stderr)
+                    sys.exit(1)
         else:
             if args.verbose:
                 print("Configuration validated successfully")
@@ -524,7 +530,6 @@ EXAMPLES:
                         print(f"  [{section}] - {len(cfg[section])} items")
             else:
                 print("Config OK")
-                print("\nUse --help for more options")
 
         sys.exit(0)
 

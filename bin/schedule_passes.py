@@ -347,10 +347,11 @@ def write_file_atomic(path: str, content: str) -> None:
 # --- Cleanup / create / enable ----------------------------------------------
 
 def cleanup_existing_units(generated_units_dir: str) -> None:
-    services = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.service")))
-    timers = sorted(glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.timer")))
+    # Find ALL satpi-pass-* units in /etc/systemd/system/, regardless of where their files are
+    systemd_units = sorted(glob.glob("/etc/systemd/system/satpi-pass-*.service")) + \
+                    sorted(glob.glob("/etc/systemd/system/satpi-pass-*.timer"))
 
-    unit_names = [os.path.basename(p) for p in services + timers]
+    unit_names = [os.path.basename(p) for p in systemd_units]
     active_skipped: List[str] = []
 
     for unit in unit_names:
@@ -366,23 +367,24 @@ def cleanup_existing_units(generated_units_dir: str) -> None:
         run(["sudo", "systemctl", "disable", "--now", unit], check=False)
         run(["sudo", "systemctl", "reset-failed", unit], check=False)
 
-    # Delete only the files we actually tore down.
-    for path in services + timers:
-        name = os.path.basename(path)
-        if name in active_skipped:
-            continue
-        sidecar = os.path.join(generated_units_dir, name.rsplit(".", 1)[0] + ".pass.json")
+    # Unlink any stale symlinks from /etc/systemd/system/
+    for unit_file in systemd_units:
+        if os.path.islink(unit_file):
+            unit_name = os.path.basename(unit_file)
+            if unit_name not in active_skipped:
+                try:
+                    os.unlink(unit_file)
+                    logger.info("Removed stale symlink: %s", unit_file)
+                except OSError as e:
+                    logger.warning("Failed to remove symlink %s: %s", unit_file, e)
+
+    # Clean up sidecar files from generated_units_dir
+    for pass_file in glob.glob(os.path.join(generated_units_dir, "satpi-pass-*.pass.json")):
         try:
-            os.remove(path)
-            logger.info("Removed old unit file: %s", path)
+            os.remove(pass_file)
+            logger.info("Removed old pass sidecar: %s", pass_file)
         except FileNotFoundError:
             pass
-        if os.path.exists(sidecar):
-            try:
-                os.remove(sidecar)
-            except OSError:
-                pass
-
 
 def create_units(
     generated_units_dir: str,
@@ -420,18 +422,20 @@ def link_and_enable_units(created_units: Sequence[Tuple[str, str, str, str]]) ->
         run(["sudo", "systemctl", "daemon-reload"])
         return
 
-    link_args = ["sudo", "systemctl", "link"]
+    # Link each unit individually to avoid the whole command failing if one already exists
+    linked_count = 0
     for _, _, service_path, timer_path in created_units:
-        link_args.extend([service_path, timer_path])
-    run(link_args)
+        for path in [service_path, timer_path]:
+            # Use --force to overwrite existing symlinks from old path locations
+            result = run(["sudo", "systemctl", "link", "--force", path], check=False)
+            if result.returncode == 0:
+                linked_count += 1
+            else:
+                logger.warning("Failed to link %s", path)
 
-    run(["sudo", "systemctl", "daemon-reload"])
-
-    enable_args = ["sudo", "systemctl", "enable", "--now"]
-    for _, timer_name, _, _ in created_units:
-        enable_args.append(timer_name)
-    run(enable_args)
-
+    if linked_count == 0:
+        logger.error("No units were successfully linked")
+        raise RuntimeError("Failed to link any systemd units")
 
 # --- Main --------------------------------------------------------------------
 
