@@ -2,9 +2,12 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageStat
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 def analyze_image(path: Path):
     img = Image.open(path).convert("L")
@@ -100,8 +103,8 @@ def score_channels(channels):
     }
 
 
-def load_gain(pass_dir: Path):
-    reception = pass_dir / "reception.json"
+def load_gain(output_dir: Path):
+    reception = output_dir / "reception.json"
     if not reception.exists():
         return None
     try:
@@ -113,14 +116,23 @@ def load_gain(pass_dir: Path):
 
 
 def main():
+
+    base_dir = Path(__file__).resolve().parent.parent
+    config_path = base_dir / "config" / "config.ini"
     parser = argparse.ArgumentParser()
-    parser.add_argument("pass_dir")
+    parser.add_argument("output_dir", nargs="?", default=None,
+                       help="Output directory (default: from config)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
-    pass_dir = Path(args.pass_dir).expanduser().resolve()
-    msu_dir = pass_dir / "MSU-MR"
+    if args.output_dir is None:
+        config = read_config(config_path)
+        output_dir = Path(config["paths"]["output_dir"]).expanduser().resolve()
+    else:
+        output_dir = Path(args.output_dir).expanduser().resolve()
+
+    msu_dir = output_dir / "MSU-MR"
 
     files = [
         msu_dir / "MSU-MR-1.png",
@@ -131,7 +143,7 @@ def main():
     missing = [str(f) for f in files if not f.exists()]
     if missing:
         result = {
-            "pass_dir": str(pass_dir),
+            "output_dir": str(output_dir),
             "quality_score": 0.0,
             "quality_class": "bad",
             "copy_recommended": False,
@@ -156,8 +168,8 @@ def main():
     email_recommended = score >= 70
 
     result = {
-        "pass_dir": str(pass_dir),
-        "gain": load_gain(pass_dir),
+        "output_dir": str(output_dir),
+        "gain": load_gain(output_dir),
         "quality_score": score,
         "quality_class": quality_class,
         "copy_recommended": copy_recommended,
@@ -175,7 +187,7 @@ def main():
         print(f"{score} {quality_class} {str(copy_recommended).lower()} {str(email_recommended).lower()}")
         return
 
-    print(f"Pass:            {pass_dir}")
+    print(f"Pass:            {output_dir}")
     print(f"Gain:            {result['gain']}")
     print(f"Quality score:   {score}/100")
     print(f"Quality class:   {quality_class}")

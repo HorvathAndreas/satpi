@@ -28,7 +28,11 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from load_config import load_config, ConfigError
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
+
 
 
 # --- Constants ---------------------------------------------------------------
@@ -331,7 +335,7 @@ def main() -> int:
     config_path = base_dir / "config" / "config.ini"
 
     try:
-        config = load_config(str(config_path))
+        config = read_config(str(config_path))
     except ConfigError as e:
         print(f"[update] CONFIG ERROR: {e}", file=sys.stderr)
         return 2

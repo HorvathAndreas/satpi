@@ -58,11 +58,12 @@ from skyfield.api import EarthSatellite, Loader, wgs84
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
-from load_config import ConfigError, load_config  # noqa: E402
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 # --- Constants ---------------------------------------------------------------
 
@@ -894,7 +895,7 @@ def main() -> int:
         config_path = os.path.join(base_dir, "config", "config.ini")
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[receive_pass] CONFIG ERROR: {e}", file=sys.stderr)
         return 2

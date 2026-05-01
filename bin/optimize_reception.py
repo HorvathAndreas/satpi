@@ -48,8 +48,10 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from load_config import ConfigError, load_config
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 # --- Constants ---------------------------------------------------------------
 
@@ -166,7 +168,7 @@ def _coerce_float(v: Any, default: float) -> float:
 def load_optimizer_settings(config_path: str, config: dict[str, Any]) -> dict[str, Any]:
     """Return parsed [optimize_reception] settings.
 
-    Prefers the dict parsed by load_config(); falls back to reading the INI
+    Prefers the dict parsed by read_config(); falls back to reading the INI
     directly if that section is not present in the parsed config.
     """
     section: dict[str, Any] = dict(config.get("optimize_reception") or {})
@@ -1297,7 +1299,7 @@ def main() -> int:
     config_path = get_config_path(args.config)
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[optimize_reception] CONFIG ERROR: {e}", file=sys.stderr)
         return 2

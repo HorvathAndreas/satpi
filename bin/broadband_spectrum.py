@@ -40,6 +40,10 @@ import os
 import numpy as np
 import matplotlib
 import matplotlib.patches as mpatches
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 BAND_ANNOTATIONS = [
     (80,   88,  '#2d4a1e', 'VHF Low'),
@@ -265,8 +269,6 @@ def plot_spectrum(freqs, powers, args, timestamp):
     plt.tight_layout()
     return fig
 
-from load_config import load_config, ConfigError
-
 def main():
     args = parse_args()
 
@@ -276,7 +278,7 @@ def main():
 
     # Load config
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[ERROR] Config loading failed: {e}", file=sys.stderr)
         return 1

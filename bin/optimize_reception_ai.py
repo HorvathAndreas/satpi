@@ -12,10 +12,9 @@ from pathlib import Path
 from openai import OpenAI, RateLimitError, APIError
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
-from load_config import load_config, ConfigError
+from read_config import load_config, ConfigError
 
 DEFAULT_MODEL = "gpt-5"
 
@@ -146,7 +145,7 @@ def main():
     config_path = base_dir / "config" / "config.ini"
 
     try:
-        config = load_config(str(config_path))
+        config = read_config(str(config_path))
     except ConfigError as e:
         print(f"[ERROR] CONFIG ERROR: {e}")
         return 1

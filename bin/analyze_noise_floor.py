@@ -41,10 +41,11 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
 
-from load_config import load_config, ConfigError
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 logger = logging.getLogger("satpi.analyze_noise")
 
@@ -782,12 +783,14 @@ def upload_results(output_dir: str, config: dict, log_dir: str) -> tuple[bool, s
         logger.info("Upload disabled in config (noise_floor.upload_enabled = false).")
         return False, None
 
-    remote      = str(nf_cfg.get("rclone_remote", "")).strip()
-    remote_path = str(nf_cfg.get("rclone_path", "")).strip()
-    create_link = str(nf_cfg.get("create_link", "false")).strip().lower() in ("1", "true", "yes", "on")
+# Always use [copytarget] settings for upload
+    ct_cfg = config.get("copytarget", {})
+    remote = str(ct_cfg.get("rclone_remote", "")).strip()
+    remote_path = str(ct_cfg.get("rclone_reports_dir", "")).strip()
+    create_link = str(ct_cfg.get("create_link", "false")).strip().lower() in ("1", "true", "yes", "on")
 
     if not remote or not remote_path:
-        logger.error("rclone_remote or rclone_path missing in [noise_floor] config.")
+        logger.error("rclone_remote or rclone_path missing in [copytarget] config.")
         return False, None
 
     target = f"{remote}:{remote_path}"
@@ -833,7 +836,7 @@ def main() -> int:
     config_path = get_config_path(args.config)
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[analyze_noise_floor] CONFIG ERROR: {e}", file=sys.stderr)
         return 2

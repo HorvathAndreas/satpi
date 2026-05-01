@@ -1,6 +1,0 @@
-[4mNEXT                        [0m[4m [0m[4m   LEFT[0m[4m [0m[4mLAST                        [0m[4m [0m[4mPASSED[0m[4m [0m[4mUNIT                                         [0m[4m [0m[4mACTIVATES                                      [0m
-Fri 2026-05-01 12:01:21 CEST 3h 7min Tue 2026-04-28 23:49:02 CEST      - satpi-pass-20260501T120121Z-METEOR-M2-3.timer satpi-pass-20260501T120121Z-METEOR-M2-3.service
-Fri 2026-05-01 15:41:55 CEST      6h Tue 2026-04-28 16:31:23 CEST      - satpi-pass-20260501T154155Z-METEOR-M2-4.timer satpi-pass-20260501T154155Z-METEOR-M2-4.service
-
-[0;1;39m2 timers listed.[0m
-Pass --all to see loaded but inactive timers, too.

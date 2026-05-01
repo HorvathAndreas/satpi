@@ -8,7 +8,10 @@ import os
 import sqlite3
 from typing import Any
 
-from load_config import load_config, ConfigError
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 # Define which columns to show for each level
 COLUMN_LEVELS = {
@@ -371,7 +374,7 @@ def main() -> int:
     config_path = get_config_path(args.config)
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[query_reception_db] CONFIG ERROR: {e}")
         return 1

@@ -12,8 +12,10 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from load_config import load_config, ConfigError
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -331,7 +333,7 @@ def main() -> int:
     config_path = get_config_path()
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[import_reception_to_db] CONFIG ERROR: {e}")
         return 1

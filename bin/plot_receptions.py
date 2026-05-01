@@ -20,11 +20,9 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
 
-from load_config import load_config, ConfigError
-
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 def get_config_path() -> str:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -950,7 +948,7 @@ def main():
     config_path = get_config_path()
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         raise SystemExit(f"CONFIG ERROR: {e}")
 

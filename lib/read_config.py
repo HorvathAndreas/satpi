@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""satpi – load_config
+"""satpi – read_config
 
 Loads, parses and validates the central satpi configuration file.
 
@@ -50,7 +50,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     "network": {"tle_url", "tle_timeout_seconds", "api_key", "tle_format"},
     "decode": {"min_cadu_size_bytes", "success_dir_relpath"},
     "copytarget": {
-        "enabled", "type", "rclone_remote", "rclone_path", "create_link",
+        "enabled", "type", "rclone_remote", "rclone_dir", "rclone_reports_dir", "create_link",
     },
     "notify": {"enabled", "mail_to", "mail_subject_prefix"},
     "systemd": {"service_user"},
@@ -128,7 +128,7 @@ def _check_unknown_keys(parser: configparser.ConfigParser, errors: List[str]) ->
 
 # --- Public entry point ------------------------------------------------------
 
-def load_config(path: str) -> Dict[str, Any]:
+def read_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise ConfigError(
             f"Config file not found: {path}\n"
@@ -362,7 +362,8 @@ def _parse_copytarget(p: configparser.ConfigParser) -> Dict[str, Any]:
         "enabled": p.getboolean("copytarget", "enabled", fallback=False),
         "type": p.get("copytarget", "type", fallback="rclone"),
         "rclone_remote": p.get("copytarget", "rclone_remote", fallback=None),
-        "rclone_path": p.get("copytarget", "rclone_path", fallback=None),
+        "rclone_dir": p.get("copytarget", "rclone_dir", fallback=None),
+        "rclone_reports_dir": p.get("copytarget", "rclone_reports_dir", fallback=None),
         "create_link": p.getboolean("copytarget", "create_link", fallback=False),
     }
 
@@ -461,16 +462,16 @@ def main():
     default_config = os.path.abspath(os.path.join(script_dir, "..", "config", "config.ini"))
 
     parser = argparse.ArgumentParser(
-        prog="load_config.py",
+        prog="read_config.py",
         description="SATPI Configuration Loader",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 EXAMPLES:
-  python3 load_config.py
-  python3 load_config.py --config /path/to/config.ini
-  python3 load_config.py --section station --key name
-  python3 load_config.py --section hardware
-  python3 load_config.py --verbose
+  python3 read_config.py
+  python3 read_config.py --config /path/to/config.ini
+  python3 read_config.py --section station --key name
+  python3 read_config.py --section hardware
+  python3 read_config.py --verbose
         """
     )
 
@@ -491,7 +492,7 @@ EXAMPLES:
         sys.exit(1)
 
     try:
-        cfg = load_config(config_path)
+        cfg = read_config(config_path)
         sys.path.insert(0, cfg["paths"]["lib_dir"])
         from parse_frequency import parse_frequency
         if args.section:

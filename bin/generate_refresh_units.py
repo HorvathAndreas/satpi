@@ -12,8 +12,10 @@ import logging
 import os
 import subprocess
 
-from load_config import load_config, ConfigError
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 logger = logging.getLogger("satpi.generate_refresh_units")
 
@@ -117,7 +119,7 @@ def main():
     config_path = os.path.join(base_dir, "config", "config.ini")
 
     try:
-        config = load_config(config_path)
+        config = read_config(config_path)
     except ConfigError as e:
         print(f"[generate_refresh_units] CONFIG ERROR: {e}")
         return

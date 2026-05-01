@@ -26,8 +26,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from skyfield.api import Loader, wgs84
 from skyfield.sgp4lib import EarthSatellite
 
-from load_config import load_config, ConfigError
-
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+from read_config import read_config, ConfigError
 
 # --- Constants ---------------------------------------------------------------
 
@@ -320,7 +322,7 @@ def main() -> int:
     config_path = base_dir / "config" / "config.ini"
 
     try:
-        config = load_config(str(config_path))
+        config = read_config(str(config_path))
     except ConfigError as e:
         print(f"[predict] CONFIG ERROR: {e}", file=sys.stderr)
         return 2
