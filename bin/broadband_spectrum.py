@@ -265,9 +265,34 @@ def plot_spectrum(freqs, powers, args, timestamp):
     plt.tight_layout()
     return fig
 
+from load_config import load_config, ConfigError
 
 def main():
     args = parse_args()
+
+    # Construct config path
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(base_dir, "config", "config.ini")
+
+    # Load config
+    try:
+        config = load_config(config_path)
+    except ConfigError as e:
+        print(f"[ERROR] Config loading failed: {e}", file=sys.stderr)
+        return 1
+
+    # Determine output path
+    if args.output == 'broadband_spectrum.png':
+        output_dir = config["paths"]["output_dir"]
+        output_path = os.path.join(output_dir, args.output)
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_path = args.output
+        parent_dir = os.path.dirname(output_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+
+    args.output = output_path
 
     # Use non-interactive backend for batch processing
     matplotlib.use('Agg')
@@ -299,7 +324,6 @@ def main():
         # Clean up temporary CSV
         if os.path.exists(csv_path):
             os.unlink(csv_path)
-
 
 if __name__ == '__main__':
     sys.exit(main())

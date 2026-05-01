@@ -54,6 +54,9 @@ import time
 from datetime import datetime, timezone, timedelta, date as date_type
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+
+from parse_frequency import parse_frequency
 
 try:
     from zoneinfo import ZoneInfo
@@ -585,9 +588,14 @@ def run_rtl_power(
     output_path: str,
     dry_run: bool = False,
 ) -> bool:
+    # Convert all to Hz for consistent rtl_power format
+    freq_start_hz = int(freq_start_mhz * 1e6)
+    freq_end_hz = int(freq_end_mhz * 1e6)
+    bin_size_hz = int(bin_size_khz * 1e3)
+
     cmd = [
         "rtl_power",
-        "-f", f"{freq_start_mhz:.3f}M:{freq_end_mhz:.3f}M:{bin_size_khz:.3f}k",
+        "-f", f"{freq_start_hz}:{freq_end_hz}:{bin_size_hz}",
         "-g", str(gain),
         "-i", "10",
         "-e", str(duration_seconds),
@@ -611,7 +619,6 @@ def run_rtl_power(
     except Exception as e:
         logger.error("rtl_power error: %s", e)
         return False
-
 
 # ---------------------------------------------------------------------------
 # CSV parser
@@ -1036,9 +1043,11 @@ def main() -> int:
             half = nf_cfg.get("bandwidth_mhz", 0.4) / 2
             args.freq_end = nf_cfg.get("center_freq_mhz", 137.9) + half
     if args.bin_size is None:
-        args.bin_size = nf_cfg.get("bin_size_khz", 10.0)
-    logger.info("Frequency range: %.3f – %.3f MHz, bin size: %.1f kHz",
-                args.freq_start, args.freq_end, args.bin_size)
+        bin_size_str = nf_cfg.get("bin_size", "10 kHz")
+        bin_size_hz = parse_frequency(bin_size_str)
+        args.bin_size = bin_size_hz / 1000  # Convert to kHz for rest of script
+        logger.info("Frequency range: %.3f – %.3f MHz, bin size: %.1f kHz",
+            args.freq_start, args.freq_end, args.bin_size)
 
     # ── Check if noise floor service is already running ───────────────────
     if is_noise_floor_service_running():

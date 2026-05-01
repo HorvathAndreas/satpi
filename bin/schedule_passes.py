@@ -120,9 +120,9 @@ def isoformat_utc(dt: datetime) -> str:
     )
 
 
-def systemd_time(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+def systemd_time(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 def sanitize_name(value: str) -> str:
     value = value.upper().replace(" ", "-").replace("_", "-")
@@ -416,7 +416,6 @@ def create_units(
         created.append((service_name, timer_name, service_path, timer_path))
     return created
 
-
 def link_and_enable_units(created_units: Sequence[Tuple[str, str, str, str]]) -> None:
     if not created_units:
         run(["sudo", "systemctl", "daemon-reload"])
@@ -436,6 +435,17 @@ def link_and_enable_units(created_units: Sequence[Tuple[str, str, str, str]]) ->
     if linked_count == 0:
         logger.error("No units were successfully linked")
         raise RuntimeError("Failed to link any systemd units")
+
+    # Reload daemon
+    run(["sudo", "systemctl", "daemon-reload"])
+
+    # Enable and start timers
+    for _, _, _, timer_path in created_units:
+        timer_name = Path(timer_path).name
+        run(["sudo", "systemctl", "enable", timer_name], check=False)
+        run(["sudo", "systemctl", "start", timer_name], check=False)
+
+    logger.info("Linked and started %d timer/service pairs", len(created_units))
 
 # --- Main --------------------------------------------------------------------
 
