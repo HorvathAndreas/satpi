@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import sys
 import tempfile
 import time
+import argparse
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Iterable, List, Sequence, Set, Tuple
@@ -330,7 +332,63 @@ def _fallback_after_failure(tle_file: str) -> None:
     )
 
 
+def mirror_to_satdump(source_file: str) -> bool:
+    """Mirror our local TLE file into SatDump's expected location so SatDump
+    does not fall back to fetching from celestrak.org (which often blocks
+    the satpi IP). Atomic write via tmp + os.replace.
+
+    Non-fatal: warns on any error and returns False, never aborts the main
+    update flow.
+    """
+    target = Path.home() / ".config" / "satdump" / "satdump_tles.txt"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = str(target) + ".tmp"
+        shutil.copyfile(source_file, tmp)
+        os.replace(tmp, str(target))
+        logger.info("Mirrored TLE to SatDump: %s", target)
+        return True
+    except OSError as e:
+        logger.warning("Could not mirror TLE to SatDump (%s): %s", target, e)
+        return False
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Download and filter TLE (Two-Line Element) orbital data for configured satellites",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+CONFIG.INI REQUIREMENTS:
+  [network]
+    - tle_url: URL of the TLE source (e.g., Celestrak or N2YO API endpoint)
+    - tle_format: Format of TLE data ('TXT' or 'JSON', default: 'TXT')
+    - api_key: (Optional) API key for N2YO service
+
+  [paths]
+    - tle_file: Output path for filtered TLE data (e.g., results/tle/weather.tle)
+    - log_dir: Directory for log files
+
+  [satellites]
+    - List of satellites with 'enabled' flag and 'norad_id' (for N2YO format)
+
+OUTPUT FILES:
+  - Primary TLE: {tle_file} (from config.ini)
+  - SatDump mirror: ~/.config/satdump/satdump_tles.txt (prevents SatDump from fetching from Celestrak)
+  - Log file: {log_dir}/update_tle.log
+
+BEHAVIOR:
+  - Downloads current TLE data from configured source
+  - Filters to include only configured satellites
+  - Falls back to existing local TLE if download fails (age < 5 days)
+  - Mirrors TLE to SatDump directory (non-fatal if it fails)
+  - Checks internet connectivity and Celestrak availability on failure
+        """
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    parse_args()  # Process --help / -h if requested
     base_dir = Path(__file__).resolve().parent.parent
     config_path = base_dir / "config" / "config.ini"
 
@@ -341,6 +399,7 @@ def main() -> int:
         return 2
 
     setup_logging(config["paths"]["log_dir"])
+    # ... rest of function (unchanged)
 
     tle_url = config["network"]["tle_url"]
     api_key = config["network"].get("api_key", "")
@@ -380,10 +439,12 @@ def main() -> int:
             filter_tle(tmp_file, tle_file, sat_names)
 
             logger.info("TLE update successful: %s", tle_file)
+            mirror_to_satdump(tle_file)
             return 0
 
         except RuntimeError:
             _fallback_after_failure(tle_file)
+            mirror_to_satdump(tle_file)
             return 0  # fallback accepted
 
     except Exception as e:

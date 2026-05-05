@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 import sys
+import argparse
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -451,10 +452,60 @@ def link_and_enable_units(created_units: Sequence[Tuple[str, str, str, str]]) ->
 
 # --- Main --------------------------------------------------------------------
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate systemd service and timer units for satellite pass reception",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+CONFIG.INI REQUIREMENTS:
+  [paths]
+    - pass_file: Input JSON file with predicted passes (from predict_passes.py output)
+    - generated_units_dir: Directory for systemd service/timer unit files
+    - python_bin: Path to Python interpreter
+    - log_dir: Directory for log files
+
+  [scheduling]
+    - pre_start: Seconds before pass start to begin reception (warmup time)
+    - post_stop: Seconds after pass end to stop reception
+
+  [systemd]
+    - service_user: Optional user account for running receiver service
+
+  [satellites]
+    - pass_direction: Direction filter for each satellite (default: "all")
+      Valid values: north, northeast, east, southeast, south, southwest, west, 
+                   northwest, north_to_south, east_to_west, etc.
+
+OUTPUT FILES:
+  - Systemd service units: /etc/systemd/system/satpi-pass-*.service
+  - Systemd timer units: /etc/systemd/system/satpi-pass-*.timer
+  - Pass sidecar data: {generated_units_dir}/satpi-pass-*.pass.json
+  - Log file: {log_dir}/schedule_passes.log
+
+BEHAVIOR:
+  - Reads predicted passes from JSON file
+  - Filters out past passes (with grace period for recently-started passes)
+  - Filters by pass direction per satellite
+  - Removes outdated/inactive units from systemd
+  - Creates new service+timer pairs for each future pass
+  - Writes pass metadata to sidecar JSON files
+  - Enables and starts timer units via systemctl
+  - Warns on overlapping pass windows
+  - Requires passwordless sudo for systemctl commands
+
+PROTOCOL:
+  Each receiver service is invoked as:
+    python_bin receiver_script.py --pass-file <sidecar_json_path>
+  The sidecar contains all pass data (satellite, frequency, times, etc.)
+        """
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    parse_args()  # Process --help / -h if requested
     base_dir = Path(__file__).resolve().parent.parent
     config_path = base_dir / "config" / "config.ini"
-
     try:
         config = read_config(str(config_path))
     except ConfigError as e:

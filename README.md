@@ -103,7 +103,7 @@ satpi/
 │   └── images/
 ├── logs/
 ├── results/
-│   ├── captures/
+│   ├── passes/
 │   ├── database/
 │   ├── optimization/
 │   ├── passes/
@@ -260,7 +260,7 @@ All local project paths are configured in the [paths] section.
 
 base_dir is the project root. Most project-specific paths in config.ini are stored relative to base_dir, for example:
 	•	results/passes/passes.json
-	•	results/captures
+	•	results/passes
 	•	results/tle/weather.tle
 	•	results/database/reception.db
 
@@ -378,11 +378,11 @@ Pass results
 
 Pass-specific reception results are written to:
 
-results/captures/
+results/passes/
 
 Each pass gets its own directory, for example:
 
-results/captures/2026-04-10_16-07-30_METEOR-M2_4/
+results/passes/2026-04-10_16-07-30_METEOR-M2_4/
 
 A pass directory may contain:
 	•	reception.json
@@ -434,7 +434,7 @@ logs/
 
 Structured reception data
 
-For every recorded pass, receive_pass.py writes a reception.json file into the pass directory under results/captures/.
+For every recorded pass, receive_pass.py writes a reception.json file into the pass directory under results/passes/.
 
 This file contains:
 	•	pass identifiers and timing

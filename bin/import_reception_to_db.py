@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Import all reception.json files from results/captures",
+        help="Import all reception.json files from results/passes",
     )
     return parser.parse_args()
 

@@ -77,13 +77,6 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
         "freq_start", "freq_end",
         "upload_enabled", "rclone_remote", "rclone_path", "create_link",
     },
-    "processing_thresholds": {
-        "score_fair", "score_good",
-        "channel_stddev_fair", "channel_stddev_good",
-        "channel_range_fair", "channel_range_good",
-        "lrpt_dir", "lrpt_channels", "lrpt_tolerate_missing_channel",
-        "hrpt_dir", "hrpt_channels", "hrpt_tolerate_missing_channel",
-    },
 }
 
 # Satellite section keys (dynamic section names)
@@ -133,27 +126,6 @@ def _check_unknown_keys(parser: configparser.ConfigParser, errors: List[str]) ->
             )
 
 
-def _parse_channels(spec: str) -> List[int]:
-    """Parse channel spec like "1-6", "1,3,5", or "1-3,5,7-9" into a sorted unique list of ints."""
-    spec = (spec or "").strip()
-    if not spec:
-        return []
-    out: Set[int] = set()
-    for part in spec.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part:
-            a_s, b_s = part.split("-", 1)
-            a, b = int(a_s.strip()), int(b_s.strip())
-            if a > b:
-                a, b = b, a
-            out.update(range(a, b + 1))
-        else:
-            out.add(int(part))
-    return sorted(out)
-
-
 # --- Public entry point ------------------------------------------------------
 
 def read_config(path: str) -> Dict[str, Any]:
@@ -196,7 +168,6 @@ def read_config(path: str) -> Dict[str, Any]:
         cfg["optimize_reception"] = _parse_optimize_reception(parser)
         if parser.has_section("noise_floor"):
             cfg["noise_floor"] = _parse_noise_floor(parser)
-        cfg["processing_thresholds"] = _parse_processing_thresholds(parser, errors)
     except configparser.NoOptionError as e:
         errors.append(f"Missing required option: {e}")
     except configparser.NoSectionError as e:
@@ -475,117 +446,6 @@ def _parse_noise_floor(p: configparser.ConfigParser) -> Dict[str, Any]:
         "rclone_remote": p.get("noise_floor", "rclone_remote", fallback=""),
         "rclone_path": p.get("noise_floor", "rclone_path", fallback=""),
         "create_link": p.getboolean("noise_floor", "create_link", fallback=False),
-    }
-
-
-def _parse_processing_thresholds(
-    p: configparser.ConfigParser, errors: List[str]
-) -> Dict[str, Any]:
-    """Parse [processing_thresholds] section.
-
-    Returns a nested dict with score thresholds, per-channel classification
-    thresholds, and a 'pipelines' sub-dict keyed by format prefix
-    ('lrpt', 'hrpt') with each entry holding {dir, channels, tolerate_missing_channel}.
-    The format prefix is selected by the caller from the pipeline name in
-    reception.json (e.g. '*_lrpt' -> 'lrpt').
-
-    If the section is missing, sensible defaults are returned with no
-    pipeline configured.
-    """
-    if not p.has_section("processing_thresholds"):
-        return {
-            "score_fair": 40.0,
-            "score_good": 70.0,
-            "channel_stddev_fair": 5.0,
-            "channel_stddev_good": 20.0,
-            "channel_range_fair": 30,
-            "channel_range_good": 80,
-            "pipelines": {},
-        }
-
-    def f(key: str, default: float) -> float:
-        return p.getfloat("processing_thresholds", key, fallback=default)
-
-    def i(key: str, default: int) -> int:
-        return p.getint("processing_thresholds", key, fallback=default)
-
-    def s(key: str, default: str = "") -> str:
-        return p.get("processing_thresholds", key, fallback=default).strip()
-
-    score_fair = f("score_fair", 40.0)
-    score_good = f("score_good", 70.0)
-    if score_fair >= score_good:
-        errors.append(
-            f"[processing_thresholds] score_fair ({score_fair}) "
-            f"must be < score_good ({score_good})"
-        )
-
-    ch_stddev_fair = f("channel_stddev_fair", 5.0)
-    ch_stddev_good = f("channel_stddev_good", 20.0)
-    if ch_stddev_fair >= ch_stddev_good:
-        errors.append(
-            f"[processing_thresholds] channel_stddev_fair ({ch_stddev_fair}) "
-            f"must be < channel_stddev_good ({ch_stddev_good})"
-        )
-
-    ch_range_fair = i("channel_range_fair", 30)
-    ch_range_good = i("channel_range_good", 80)
-    if ch_range_fair >= ch_range_good:
-        errors.append(
-            f"[processing_thresholds] channel_range_fair ({ch_range_fair}) "
-            f"must be < channel_range_good ({ch_range_good})"
-        )
-
-    pipelines: Dict[str, Dict[str, Any]] = {}
-    for prefix in ("lrpt", "hrpt"):
-        pdir = s(f"{prefix}_dir")
-        pchan_str = s(f"{prefix}_channels")
-        if not pdir and not pchan_str:
-            # Neither configured — pipeline not in use here, skip silently.
-            continue
-        if not pdir:
-            errors.append(
-                f"[processing_thresholds] {prefix}_dir is missing while "
-                f"{prefix}_channels is set"
-            )
-            continue
-        try:
-            channels = _parse_channels(pchan_str)
-        except ValueError as e:
-            errors.append(
-                f"[processing_thresholds] invalid {prefix}_channels '{pchan_str}': {e}"
-            )
-            channels = []
-        if not channels:
-            errors.append(
-                f"[processing_thresholds] {prefix}_channels yielded no channels"
-            )
-        tol = i(f"{prefix}_tolerate_missing_channel", 0)
-        if tol < 0:
-            errors.append(
-                f"[processing_thresholds] {prefix}_tolerate_missing_channel "
-                f"must be >= 0"
-            )
-            tol = 0
-        if channels and tol > len(channels):
-            errors.append(
-                f"[processing_thresholds] {prefix}_tolerate_missing_channel "
-                f"({tol}) exceeds number of channels ({len(channels)})"
-            )
-        pipelines[prefix] = {
-            "dir": pdir,
-            "channels": channels,
-            "tolerate_missing_channel": tol,
-        }
-
-    return {
-        "score_fair": score_fair,
-        "score_good": score_good,
-        "channel_stddev_fair": ch_stddev_fair,
-        "channel_stddev_good": ch_stddev_good,
-        "channel_range_fair": ch_range_fair,
-        "channel_range_good": ch_range_good,
-        "pipelines": pipelines,
     }
 
 
