@@ -446,23 +446,23 @@ def main() -> int:
         link = None
 
 
-    if args.db:
-        logger.info("Step: DB Import")
-        reception_json = os.path.join(pass_dir, "reception.json")
-        import_to_db(config, reception_json)
+        if args.db:
+            logger.info("Step: DB Import")
+            reception_json = os.path.join(pass_dir, "reception.json")
+            import_to_db(config, reception_json)
 
-    if args.plots:
-        logger.info("Step: Plots")
-        pass_id = pass_name
-        generate_plots(config, pass_id)
+        if args.plots:
+            logger.info("Step: Plots")
+            pass_id = pass_name
+            generate_plots(config, pass_id)
 
-    if args.copy:
-        logger.info("Step: Copy")
-        copy_ok, target, link = copy_output(config, pass_name, pass_dir)
+        if args.copy:
+            logger.info("Step: Copy")
+            copy_ok, target, link = copy_output(config, pass_name, pass_dir)
 
-    if args.notify:
-        logger.info("Step: Notify")
-        send_notification(config, reception_payload, copy_ok, target, link)
+        if args.notify:
+            logger.info("Step: Notify")
+            send_notification(config, reception_payload, copy_ok, target, link)
 
 
     logger.info("Pass %s completed", pass_name)
