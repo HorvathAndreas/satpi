@@ -214,6 +214,73 @@ fi
 
 press_enter
 
+section "ENABLE PERSISTENT SYSTEMD JOURNAL"
+
+cat <<'EOT_JOURNAL_INFO'
+By default, systemd-journald keeps logs in /run (RAM) only — they
+disappear at every reboot. Enabling persistent storage in
+/var/log/journal lets you debug crashes and reboot failures after
+the fact, e.g. via:
+
+    journalctl -b -1 -p err
+
+Trade-off: continuous writes to the SD card. We cap journal size
+at 200 MB and 2 weeks retention to limit wear. That is enough for
+debugging while keeping flash wear low on long-running Pi setups.
+EOT_JOURNAL_INFO
+
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/satpi.conf >/dev/null <<'EOT_JOURNALD_CONF'
+[Journal]
+Storage=persistent
+SystemMaxUse=200M
+SystemKeepFree=1G
+MaxRetentionSec=2week
+EOT_JOURNALD_CONF
+
+sudo mkdir -p "/var/log/journal/$(cat /etc/machine-id)"
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald
+
+info "Persistent journal enabled (cap: 200 MB, retention: 2 weeks)."
+
+press_enter
+
+section "ENABLE FAKE-HWCLOCK (CLOCK PERSISTENCE WITHOUT RTC BATTERY)"
+
+cat <<'EOT_FHWC_INFO'
+By default, the Pi 5 has no battery-backed real-time clock. Without
+RTC, the system clock starts at 1970 at every boot until NTP syncs.
+This causes confusing log timestamps and can trigger systemd timers
+with Persistent=true to fire retroactively for many missed events.
+
+fake-hwclock saves the last known time periodically and restores it
+at boot, so the clock is approximately right even before NTP syncs.
+
+This is a workaround. The proper fix is to attach a battery to the
+J5 connector on the Pi 5 board (~5 EUR for the official accessory).
+EOT_FHWC_INFO
+
+sudo apt install -y fake-hwclock
+
+# Modern Pi OS uses three split units (load/save service + save timer).
+# The legacy fake-hwclock.service is masked by Pi OS in favour of those.
+# Enable whichever variant is present.
+if systemctl list-unit-files fake-hwclock-load.service >/dev/null 2>&1; then
+    sudo systemctl enable --now fake-hwclock-load.service \
+                                fake-hwclock-save.service \
+                                fake-hwclock-save.timer || true
+elif systemctl list-unit-files fake-hwclock.service >/dev/null 2>&1; then
+    sudo systemctl enable --now fake-hwclock || true
+fi
+
+# Save current time once now, so the .data file is fresh.
+sudo fake-hwclock save 2>/dev/null || true
+
+info "fake-hwclock active. Saved time: $(cat /etc/fake-hwclock.data 2>/dev/null || echo 'unknown')"
+
+press_enter
+
 section "PREPARE SOURCE DIRECTORY"
 
 sudo mkdir -p /usr/local/src
