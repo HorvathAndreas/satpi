@@ -238,7 +238,7 @@ def _parse_qth(p: configparser.ConfigParser, errors: List[str]) -> Dict[str, Any
 
 
 def _parse_paths(p: configparser.ConfigParser) -> Dict[str, Any]:
-    base_dir = os.path.abspath(p.get("paths", "base_dir").strip())
+    base_dir = os.path.abspath(os.path.expanduser(p.get("paths", "base_dir").strip()))
 
     def rel(key: str, fallback: str = "") -> str:
         return _resolve_path(base_dir, p.get("paths", key, fallback=fallback))
