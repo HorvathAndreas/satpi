@@ -272,7 +272,7 @@ def import_to_db(config: Dict[str, Any], reception_json_path: str) -> bool:
     Returns: success: bool
     """
     base_dir = str(Path(__file__).resolve().parent.parent)
-    script = os.path.join(base_dir, "bin", "import_reception_to_db.py")
+    script = os.path.join(base_dir, "bin", "import_to_db.py")
 
     if not os.path.exists(script):
         logger.warning("import_reception_to_db.py not found: %s", script)
@@ -441,10 +441,13 @@ def main() -> int:
             continue
 
         # Execute enabled steps
-        copy_ok = True
+        copy_ok = False
         target = None
         link = None
 
+        if args.copy:
+            logger.info("Step: Copy")
+            copy_ok, target, link = copy_output(config, pass_name, pass_dir)
 
         if args.db:
             logger.info("Step: DB Import")
@@ -456,14 +459,9 @@ def main() -> int:
             pass_id = pass_name
             generate_plots(config, pass_id)
 
-        if args.copy:
-            logger.info("Step: Copy")
-            copy_ok, target, link = copy_output(config, pass_name, pass_dir)
-
         if args.notify:
             logger.info("Step: Notify")
             send_notification(config, reception_payload, copy_ok, target, link)
-
 
     logger.info("Pass %s completed", pass_name)
 
