@@ -159,6 +159,36 @@ sudo apt install -y \
 
 press_enter
 
+section "CONFIGURE SUDOERS FOR SYSTEMCTL OPERATIONS"
+
+cat <<'EOT_SUDOERS'
+satpi scripts require passwordless sudo for systemctl operations.
+This section will add a sudoers rule allowing 'systemctl' calls
+without a password prompt.
+EOT_SUDOERS
+
+# Create a temporary sudoers file
+SUDOERS_TEMP=$(mktemp)
+trap "rm -f $SUDOERS_TEMP" EXIT
+
+# Add the rule for systemctl (system-wide for all users running satpi)
+cat > "$SUDOERS_TEMP" <<EOF
+# satpi: Allow passwordless systemctl for satellite pass scheduling
+${USER} ALL=(root) NOPASSWD: /bin/systemctl
+EOF
+
+# Validate the sudoers file with visudo before applying
+if sudo visudo -c -f "$SUDOERS_TEMP" >/dev/null 2>&1; then
+    sudo install -o root -g root -m 0440 "$SUDOERS_TEMP" "/etc/sudoers.d/satpi-systemctl"
+    info "sudoers rule added: ${USER} can run /bin/systemctl without password"
+else
+    warn "sudoers validation failed. Please configure manually:"
+    warn "  sudo visudo"
+    warn "  Add: ${USER} ALL=(root) NOPASSWD: /bin/systemctl"
+fi
+
+press_enter
+
 section "BLOCK DVB-T DRIVERS"
 
 sudo tee /etc/modprobe.d/blacklist-rtl2832.conf >/dev/null <<'EOF'
@@ -171,6 +201,38 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 
 press_enter
+
+section "CONFIGURE RTL-SDR USB ACCESS"
+
+cat <<'EOT_RTLSDR'
+RTL-SDR dongles appear as USB devices and require group membership
+for non-root access. This section configures udev rules to grant
+automatic read/write access and adds the current user to the
+plugdev group.
+
+Without this, only root can access the RTL-SDR dongle.
+EOT_RTLSDR
+
+# Create udev rule for RTL-SDR access (multiple device IDs)
+sudo tee /etc/udev/rules.d/99-rtlsdr.rules >/dev/null <<'EOF'
+# RTL-SDR dongles (various manufacturer IDs)
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="0129", MODE="0666"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0296", MODE="0666"
+EOF
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# Add current user to plugdev group (for immediate access without reboot)
+sudo usermod -a -G plugdev "$USER"
+
+info "RTL-SDR USB access configured. User '$USER' added to plugdev group."
+info "Note: A new login session (or 'newgrp plugdev') may be required for group membership to take effect."
+
+press_enter
+
 
 section "CONFIGURE USB POWER (RASPBERRY PI 4 / 5)"
 
