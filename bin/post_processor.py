@@ -275,7 +275,7 @@ def import_to_db(config: Dict[str, Any], reception_json_path: str) -> bool:
     script = os.path.join(base_dir, "bin", "import_to_db.py")
 
     if not os.path.exists(script):
-        logger.warning("import_reception_to_db.py not found: %s", script)
+        logger.warning("import_to_db.py not found: %s", script)
         return False
 
     log_dir = config.get("paths", {}).get("log_dir", "/tmp")

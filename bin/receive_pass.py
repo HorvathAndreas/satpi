@@ -797,7 +797,7 @@ def postprocess(
     try:
         rc = _run_with_timeout(
             [config["paths"]["python_bin"],
-             os.path.join(base_dir, "bin", "import_reception_to_db.py"),
+             os.path.join(base_dir, "bin", "import_to_db.py"),
              reception_json_path],
             timeout=DB_IMPORT_TIMEOUT_SECONDS,
             cwd=base_dir,

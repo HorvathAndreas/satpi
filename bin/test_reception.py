@@ -28,6 +28,7 @@ from typing import Any, Dict, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 from read_config import read_config, ConfigError
+from parse_frequency import parse_frequency
 
 
 logger = logging.getLogger("satpi.test_reception")
@@ -47,6 +48,7 @@ def setup_logger(verbose: bool = False) -> None:
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
+
     parser = argparse.ArgumentParser(
         prog="test_reception.py",
         description="Test satellite reception with configurable parameters",
@@ -71,13 +73,18 @@ EXAMPLES:
     )
     parser.add_argument(
         "--frequency",
-        type=float,
-        help="Frequency in Hz (default: from config)",
+        type=str,
+        help="Frequency with unit (e.g., '137.9 MHz', '137900000 Hz', default: from config)",
     )
     parser.add_argument(
         "--samplerate",
-        type=float,
-        help="Sample rate in Hz (default: from config)",
+        type=str,
+        help="Sample rate with unit (e.g., '2.4 MHz', '2400000 Hz', default: from config)",
+    )
+    parser.add_argument(
+        "--bandwidth",
+        type=str,
+        help="Bandwidth with unit (e.g., '120 kHz', '120000 Hz', default: from config)",
     )
     parser.add_argument(
         "--gain",
@@ -92,6 +99,10 @@ EXAMPLES:
         "--bias-t",
         action="store_true",
         help="Enable Bias-T",
+    )
+    parser.add_argument(
+        "--antenna-type",
+        help="Antenna type (default: from config)",
     )
     parser.add_argument(
         "--output-dir",
@@ -147,12 +158,13 @@ def main() -> int:
     logger.info("Duration: %d seconds", args.duration)
 
     # Get parameters (user-provided or from config)
-    frequency_hz = args.frequency if args.frequency else sat.get("frequency")
-    samplerate_hz = args.samplerate if args.samplerate else config.get("hardware", {}).get("sample_rate", 2.4e6)
+    frequency_hz = parse_frequency(args.frequency) if args.frequency else sat.get("frequency")
+    samplerate_hz = parse_frequency(args.samplerate) if args.samplerate else config.get("hardware", {}).get("sample_rate", 2.4e6)
     gain_db = args.gain if args.gain is not None else config.get("hardware", {}).get("gain", 0.0)
     source_id = args.source_id if args.source_id else config.get("hardware", {}).get("source_id")
     bias_t = args.bias_t if args.bias_t else config.get("hardware", {}).get("bias_t", False)
-    bandwidth_hz = sat.get("bandwidth_hz", 120000)  # Default 120 kHz for LRPT
+    antenna_type = args.antenna_type if args.antenna_type else config.get("reception_setup", {}).get("antenna_type", "Unknown")
+    bandwidth_hz = parse_frequency(args.bandwidth) if args.bandwidth else sat.get("bandwidth_hz", 120000)
 
     logger.info("Frequency: %.1f Hz (%.3f MHz)", frequency_hz, frequency_hz / 1e6)
     logger.info("Sample rate: %.0f Hz", samplerate_hz)
@@ -160,6 +172,7 @@ def main() -> int:
     logger.info("Gain: %.1f dB", gain_db)
     logger.info("Source ID: %s", source_id or "default")
     logger.info("Bias-T: %s", "enabled" if bias_t else "disabled")
+    logger.info("Antenna: %s", antenna_type)
 
     # Prepare output directory
     output_dir = os.path.expanduser(args.output_dir)
@@ -201,7 +214,6 @@ def main() -> int:
             timeout=timeout,
             text=True,
         )
-        rc = proc.returncode
     except subprocess.TimeoutExpired:
         logger.error("Test reception timed out after %d seconds", timeout)
         return 1
@@ -213,11 +225,6 @@ def main() -> int:
         return 1
 
     logger.info("─" * 60)
-
-    if rc != 0:
-        logger.error("SatDump exited with code %d", rc)
-        return 1
-
     logger.info("Test reception completed successfully!")
     logger.info("Output saved to: %s", output_dir)
 
