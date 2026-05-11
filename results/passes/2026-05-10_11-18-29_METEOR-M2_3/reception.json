@@ -1,0 +1,3502 @@
+{
+  "pass_id": "2026-05-10_11-18-29_METEOR-M2_3",
+  "satellite": "METEOR-M2 3",
+  "pipeline": "meteor_m2-x_lrpt",
+  "frequency_hz": 137900000,
+  "bandwidth_hz": 1000000,
+  "gain": 38.6,
+  "source_id": "00000001",
+  "bias_t": true,
+  "pass_start": "2026-05-10T09:18:29Z",
+  "pass_end": "2026-05-10T09:33:46Z",
+  "scheduled_start": "2026-05-10T09:16:29Z",
+  "scheduled_end": "2026-05-10T09:35:46Z",
+  "max_elevation": 72.79,
+  "aos_azimuth_deg": 12.19,
+  "los_azimuth_deg": 202.74,
+  "direction": "north_to_south",
+  "reception_setup": {
+    "antenna_type": "Diamond DPKE-137 QFH",
+    "antenna_location": "garden rail south end 2m mast",
+    "antenna_orientation": "vertical",
+    "lna": "Noelec Sawbird NOAA",
+    "rf_filter": "n/a",
+    "feedline": "2m+2m",
+    "sdr": "RTL-SDR V4 USB-C",
+    "raspberry_pi": "Raspberry Pi 5",
+    "power_supply": "Original Raspberry Pi",
+    "additional_info": ""
+  },
+  "samples": [
+    {
+      "timestamp": "2026-05-10T07:16:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 346.997,
+      "elevation_deg": -47.714
+    },
+    {
+      "timestamp": "2026-05-10T07:16:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 347.24,
+      "elevation_deg": -47.41
+    },
+    {
+      "timestamp": "2026-05-10T07:17:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 347.481,
+      "elevation_deg": -47.106
+    },
+    {
+      "timestamp": "2026-05-10T07:17:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 347.721,
+      "elevation_deg": -46.802
+    },
+    {
+      "timestamp": "2026-05-10T07:17:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 347.96,
+      "elevation_deg": -46.497
+    },
+    {
+      "timestamp": "2026-05-10T07:17:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 348.198,
+      "elevation_deg": -46.192
+    },
+    {
+      "timestamp": "2026-05-10T07:17:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 348.435,
+      "elevation_deg": -45.887
+    },
+    {
+      "timestamp": "2026-05-10T07:17:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 348.67,
+      "elevation_deg": -45.581
+    },
+    {
+      "timestamp": "2026-05-10T07:18:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 348.905,
+      "elevation_deg": -45.275
+    },
+    {
+      "timestamp": "2026-05-10T07:18:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 349.138,
+      "elevation_deg": -44.968
+    },
+    {
+      "timestamp": "2026-05-10T07:18:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 349.371,
+      "elevation_deg": -44.661
+    },
+    {
+      "timestamp": "2026-05-10T07:18:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 349.603,
+      "elevation_deg": -44.353
+    },
+    {
+      "timestamp": "2026-05-10T07:18:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.428467,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 349.833,
+      "elevation_deg": -44.045
+    },
+    {
+      "timestamp": "2026-05-10T07:18:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 350.063,
+      "elevation_deg": -43.737
+    },
+    {
+      "timestamp": "2026-05-10T07:19:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 350.292,
+      "elevation_deg": -43.428
+    },
+    {
+      "timestamp": "2026-05-10T07:19:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.396729,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 350.521,
+      "elevation_deg": -43.119
+    },
+    {
+      "timestamp": "2026-05-10T07:19:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 350.748,
+      "elevation_deg": -42.809
+    },
+    {
+      "timestamp": "2026-05-10T07:19:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 350.975,
+      "elevation_deg": -42.499
+    },
+    {
+      "timestamp": "2026-05-10T07:19:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 351.201,
+      "elevation_deg": -42.189
+    },
+    {
+      "timestamp": "2026-05-10T07:19:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 351.427,
+      "elevation_deg": -41.878
+    },
+    {
+      "timestamp": "2026-05-10T07:20:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 351.652,
+      "elevation_deg": -41.567
+    },
+    {
+      "timestamp": "2026-05-10T07:20:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.390625,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 351.877,
+      "elevation_deg": -41.255
+    },
+    {
+      "timestamp": "2026-05-10T07:20:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 352.1,
+      "elevation_deg": -40.943
+    },
+    {
+      "timestamp": "2026-05-10T07:20:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 352.324,
+      "elevation_deg": -40.63
+    },
+    {
+      "timestamp": "2026-05-10T07:20:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 352.547,
+      "elevation_deg": -40.317
+    },
+    {
+      "timestamp": "2026-05-10T07:20:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 352.77,
+      "elevation_deg": -40.004
+    },
+    {
+      "timestamp": "2026-05-10T07:21:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 352.992,
+      "elevation_deg": -39.69
+    },
+    {
+      "timestamp": "2026-05-10T07:21:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 353.214,
+      "elevation_deg": -39.375
+    },
+    {
+      "timestamp": "2026-05-10T07:21:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 353.435,
+      "elevation_deg": -39.06
+    },
+    {
+      "timestamp": "2026-05-10T07:21:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 353.657,
+      "elevation_deg": -38.745
+    },
+    {
+      "timestamp": "2026-05-10T07:21:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.39917,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 353.878,
+      "elevation_deg": -38.429
+    },
+    {
+      "timestamp": "2026-05-10T07:21:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 354.099,
+      "elevation_deg": -38.113
+    },
+    {
+      "timestamp": "2026-05-10T07:22:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 354.32,
+      "elevation_deg": -37.796
+    },
+    {
+      "timestamp": "2026-05-10T07:22:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 354.54,
+      "elevation_deg": -37.479
+    },
+    {
+      "timestamp": "2026-05-10T07:22:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 354.761,
+      "elevation_deg": -37.161
+    },
+    {
+      "timestamp": "2026-05-10T07:22:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 354.981,
+      "elevation_deg": -36.843
+    },
+    {
+      "timestamp": "2026-05-10T07:22:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 355.202,
+      "elevation_deg": -36.524
+    },
+    {
+      "timestamp": "2026-05-10T07:22:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.397949,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 355.422,
+      "elevation_deg": -36.205
+    },
+    {
+      "timestamp": "2026-05-10T07:23:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 355.643,
+      "elevation_deg": -35.886
+    },
+    {
+      "timestamp": "2026-05-10T07:23:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 355.863,
+      "elevation_deg": -35.565
+    },
+    {
+      "timestamp": "2026-05-10T07:23:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 356.084,
+      "elevation_deg": -35.245
+    },
+    {
+      "timestamp": "2026-05-10T07:23:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 356.305,
+      "elevation_deg": -34.923
+    },
+    {
+      "timestamp": "2026-05-10T07:23:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.43335,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 356.526,
+      "elevation_deg": -34.602
+    },
+    {
+      "timestamp": "2026-05-10T07:23:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 356.748,
+      "elevation_deg": -34.279
+    },
+    {
+      "timestamp": "2026-05-10T07:24:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.429688,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 356.97,
+      "elevation_deg": -33.956
+    },
+    {
+      "timestamp": "2026-05-10T07:24:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 357.192,
+      "elevation_deg": -33.633
+    },
+    {
+      "timestamp": "2026-05-10T07:24:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 357.414,
+      "elevation_deg": -33.309
+    },
+    {
+      "timestamp": "2026-05-10T07:24:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 357.637,
+      "elevation_deg": -32.984
+    },
+    {
+      "timestamp": "2026-05-10T07:24:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 357.86,
+      "elevation_deg": -32.659
+    },
+    {
+      "timestamp": "2026-05-10T07:24:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 358.084,
+      "elevation_deg": -32.333
+    },
+    {
+      "timestamp": "2026-05-10T07:25:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 358.308,
+      "elevation_deg": -32.007
+    },
+    {
+      "timestamp": "2026-05-10T07:25:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 358.533,
+      "elevation_deg": -31.68
+    },
+    {
+      "timestamp": "2026-05-10T07:25:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 358.759,
+      "elevation_deg": -31.352
+    },
+    {
+      "timestamp": "2026-05-10T07:25:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 358.985,
+      "elevation_deg": -31.024
+    },
+    {
+      "timestamp": "2026-05-10T07:25:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 359.212,
+      "elevation_deg": -30.695
+    },
+    {
+      "timestamp": "2026-05-10T07:25:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 359.439,
+      "elevation_deg": -30.366
+    },
+    {
+      "timestamp": "2026-05-10T07:26:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 359.668,
+      "elevation_deg": -30.036
+    },
+    {
+      "timestamp": "2026-05-10T07:26:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 359.897,
+      "elevation_deg": -29.705
+    },
+    {
+      "timestamp": "2026-05-10T07:26:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 0.127,
+      "elevation_deg": -29.373
+    },
+    {
+      "timestamp": "2026-05-10T07:26:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 0.358,
+      "elevation_deg": -29.041
+    },
+    {
+      "timestamp": "2026-05-10T07:26:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 0.59,
+      "elevation_deg": -28.708
+    },
+    {
+      "timestamp": "2026-05-10T07:26:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 0.824,
+      "elevation_deg": -28.374
+    },
+    {
+      "timestamp": "2026-05-10T07:27:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 1.058,
+      "elevation_deg": -28.04
+    },
+    {
+      "timestamp": "2026-05-10T07:27:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 1.293,
+      "elevation_deg": -27.705
+    },
+    {
+      "timestamp": "2026-05-10T07:27:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 1.53,
+      "elevation_deg": -27.369
+    },
+    {
+      "timestamp": "2026-05-10T07:27:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 1.768,
+      "elevation_deg": -27.032
+    },
+    {
+      "timestamp": "2026-05-10T07:27:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 2.007,
+      "elevation_deg": -26.694
+    },
+    {
+      "timestamp": "2026-05-10T07:27:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 2.248,
+      "elevation_deg": -26.356
+    },
+    {
+      "timestamp": "2026-05-10T07:28:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 2.49,
+      "elevation_deg": -26.017
+    },
+    {
+      "timestamp": "2026-05-10T07:28:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 2.734,
+      "elevation_deg": -25.676
+    },
+    {
+      "timestamp": "2026-05-10T07:28:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 2.979,
+      "elevation_deg": -25.335
+    },
+    {
+      "timestamp": "2026-05-10T07:28:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 3.226,
+      "elevation_deg": -24.993
+    },
+    {
+      "timestamp": "2026-05-10T07:28:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 3.475,
+      "elevation_deg": -24.651
+    },
+    {
+      "timestamp": "2026-05-10T07:28:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 3.725,
+      "elevation_deg": -24.307
+    },
+    {
+      "timestamp": "2026-05-10T07:29:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 3.978,
+      "elevation_deg": -23.962
+    },
+    {
+      "timestamp": "2026-05-10T07:29:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.39917,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 4.232,
+      "elevation_deg": -23.616
+    },
+    {
+      "timestamp": "2026-05-10T07:29:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.383301,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 4.488,
+      "elevation_deg": -23.27
+    },
+    {
+      "timestamp": "2026-05-10T07:29:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.430908,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 4.747,
+      "elevation_deg": -22.922
+    },
+    {
+      "timestamp": "2026-05-10T07:29:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 5.008,
+      "elevation_deg": -22.573
+    },
+    {
+      "timestamp": "2026-05-10T07:29:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 5.27,
+      "elevation_deg": -22.223
+    },
+    {
+      "timestamp": "2026-05-10T07:30:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 5.536,
+      "elevation_deg": -21.872
+    },
+    {
+      "timestamp": "2026-05-10T07:30:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 5.803,
+      "elevation_deg": -21.52
+    },
+    {
+      "timestamp": "2026-05-10T07:30:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 6.074,
+      "elevation_deg": -21.167
+    },
+    {
+      "timestamp": "2026-05-10T07:30:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 6.347,
+      "elevation_deg": -20.813
+    },
+    {
+      "timestamp": "2026-05-10T07:30:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 6.623,
+      "elevation_deg": -20.457
+    },
+    {
+      "timestamp": "2026-05-10T07:30:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 6.901,
+      "elevation_deg": -20.1
+    },
+    {
+      "timestamp": "2026-05-10T07:31:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 7.183,
+      "elevation_deg": -19.742
+    },
+    {
+      "timestamp": "2026-05-10T07:31:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 7.467,
+      "elevation_deg": -19.382
+    },
+    {
+      "timestamp": "2026-05-10T07:31:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 7.755,
+      "elevation_deg": -19.022
+    },
+    {
+      "timestamp": "2026-05-10T07:31:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 8.047,
+      "elevation_deg": -18.659
+    },
+    {
+      "timestamp": "2026-05-10T07:31:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 8.341,
+      "elevation_deg": -18.296
+    },
+    {
+      "timestamp": "2026-05-10T07:31:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 8.639,
+      "elevation_deg": -17.931
+    },
+    {
+      "timestamp": "2026-05-10T07:32:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 8.941,
+      "elevation_deg": -17.564
+    },
+    {
+      "timestamp": "2026-05-10T07:32:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 9.247,
+      "elevation_deg": -17.196
+    },
+    {
+      "timestamp": "2026-05-10T07:32:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 9.557,
+      "elevation_deg": -16.826
+    },
+    {
+      "timestamp": "2026-05-10T07:32:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 9.871,
+      "elevation_deg": -16.455
+    },
+    {
+      "timestamp": "2026-05-10T07:32:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 10.19,
+      "elevation_deg": -16.082
+    },
+    {
+      "timestamp": "2026-05-10T07:32:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 10.513,
+      "elevation_deg": -15.707
+    },
+    {
+      "timestamp": "2026-05-10T07:33:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 10.84,
+      "elevation_deg": -15.331
+    },
+    {
+      "timestamp": "2026-05-10T07:33:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 11.173,
+      "elevation_deg": -14.953
+    },
+    {
+      "timestamp": "2026-05-10T07:33:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 11.51,
+      "elevation_deg": -14.572
+    },
+    {
+      "timestamp": "2026-05-10T07:33:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 11.853,
+      "elevation_deg": -14.19
+    },
+    {
+      "timestamp": "2026-05-10T07:33:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 12.201,
+      "elevation_deg": -13.806
+    },
+    {
+      "timestamp": "2026-05-10T07:33:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 12.555,
+      "elevation_deg": -13.42
+    },
+    {
+      "timestamp": "2026-05-10T07:34:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 12.915,
+      "elevation_deg": -13.032
+    },
+    {
+      "timestamp": "2026-05-10T07:34:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 13.281,
+      "elevation_deg": -12.642
+    },
+    {
+      "timestamp": "2026-05-10T07:34:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 13.653,
+      "elevation_deg": -12.25
+    },
+    {
+      "timestamp": "2026-05-10T07:34:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 14.032,
+      "elevation_deg": -11.855
+    },
+    {
+      "timestamp": "2026-05-10T07:34:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 14.418,
+      "elevation_deg": -11.458
+    },
+    {
+      "timestamp": "2026-05-10T07:34:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 14.811,
+      "elevation_deg": -11.058
+    },
+    {
+      "timestamp": "2026-05-10T07:35:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 15.212,
+      "elevation_deg": -10.656
+    },
+    {
+      "timestamp": "2026-05-10T07:35:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 15.62,
+      "elevation_deg": -10.252
+    },
+    {
+      "timestamp": "2026-05-10T07:35:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.393066,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 16.037,
+      "elevation_deg": -9.845
+    },
+    {
+      "timestamp": "2026-05-10T07:35:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 16.462,
+      "elevation_deg": -9.435
+    },
+    {
+      "timestamp": "2026-05-10T07:35:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 16.896,
+      "elevation_deg": -9.022
+    },
+    {
+      "timestamp": "2026-05-10T07:35:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 17.339,
+      "elevation_deg": -8.607
+    },
+    {
+      "timestamp": "2026-05-10T07:36:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 17.791,
+      "elevation_deg": -8.188
+    },
+    {
+      "timestamp": "2026-05-10T07:36:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 18.254,
+      "elevation_deg": -7.767
+    },
+    {
+      "timestamp": "2026-05-10T07:36:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 18.727,
+      "elevation_deg": -7.342
+    },
+    {
+      "timestamp": "2026-05-10T07:36:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 19.211,
+      "elevation_deg": -6.915
+    },
+    {
+      "timestamp": "2026-05-10T07:36:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 19.707,
+      "elevation_deg": -6.483
+    },
+    {
+      "timestamp": "2026-05-10T07:36:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 20.214,
+      "elevation_deg": -6.049
+    },
+    {
+      "timestamp": "2026-05-10T07:37:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.397949,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 20.734,
+      "elevation_deg": -5.611
+    },
+    {
+      "timestamp": "2026-05-10T07:37:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 21.267,
+      "elevation_deg": -5.169
+    },
+    {
+      "timestamp": "2026-05-10T07:37:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 21.813,
+      "elevation_deg": -4.724
+    },
+    {
+      "timestamp": "2026-05-10T07:37:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 22.373,
+      "elevation_deg": -4.275
+    },
+    {
+      "timestamp": "2026-05-10T07:37:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 22.949,
+      "elevation_deg": -3.822
+    },
+    {
+      "timestamp": "2026-05-10T07:37:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 23.54,
+      "elevation_deg": -3.366
+    },
+    {
+      "timestamp": "2026-05-10T07:38:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 24.147,
+      "elevation_deg": -2.905
+    },
+    {
+      "timestamp": "2026-05-10T07:38:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 24.771,
+      "elevation_deg": -2.44
+    },
+    {
+      "timestamp": "2026-05-10T07:38:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 25.413,
+      "elevation_deg": -1.97
+    },
+    {
+      "timestamp": "2026-05-10T07:38:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 26.074,
+      "elevation_deg": -1.497
+    },
+    {
+      "timestamp": "2026-05-10T07:38:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 26.754,
+      "elevation_deg": -1.019
+    },
+    {
+      "timestamp": "2026-05-10T07:38:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 27.455,
+      "elevation_deg": -0.537
+    },
+    {
+      "timestamp": "2026-05-10T07:39:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 28.178,
+      "elevation_deg": -0.05
+    },
+    {
+      "timestamp": "2026-05-10T07:39:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 28.923,
+      "elevation_deg": 0.441
+    },
+    {
+      "timestamp": "2026-05-10T07:39:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 29.691,
+      "elevation_deg": 0.937
+    },
+    {
+      "timestamp": "2026-05-10T07:39:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 30.484,
+      "elevation_deg": 1.438
+    },
+    {
+      "timestamp": "2026-05-10T07:39:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 31.303,
+      "elevation_deg": 1.943
+    },
+    {
+      "timestamp": "2026-05-10T07:39:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 32.15,
+      "elevation_deg": 2.452
+    },
+    {
+      "timestamp": "2026-05-10T07:40:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 33.025,
+      "elevation_deg": 2.967
+    },
+    {
+      "timestamp": "2026-05-10T07:40:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 33.93,
+      "elevation_deg": 3.485
+    },
+    {
+      "timestamp": "2026-05-10T07:40:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 34.866,
+      "elevation_deg": 4.008
+    },
+    {
+      "timestamp": "2026-05-10T07:40:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 35.835,
+      "elevation_deg": 4.535
+    },
+    {
+      "timestamp": "2026-05-10T07:40:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 36.838,
+      "elevation_deg": 5.065
+    },
+    {
+      "timestamp": "2026-05-10T07:40:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 37.877,
+      "elevation_deg": 5.599
+    },
+    {
+      "timestamp": "2026-05-10T07:41:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 38.954,
+      "elevation_deg": 6.137
+    },
+    {
+      "timestamp": "2026-05-10T07:41:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 40.07,
+      "elevation_deg": 6.677
+    },
+    {
+      "timestamp": "2026-05-10T07:41:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 41.227,
+      "elevation_deg": 7.22
+    },
+    {
+      "timestamp": "2026-05-10T07:41:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 42.427,
+      "elevation_deg": 7.764
+    },
+    {
+      "timestamp": "2026-05-10T07:41:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 43.671,
+      "elevation_deg": 8.309
+    },
+    {
+      "timestamp": "2026-05-10T07:41:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.397949,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 44.962,
+      "elevation_deg": 8.855
+    },
+    {
+      "timestamp": "2026-05-10T07:42:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 46.301,
+      "elevation_deg": 9.4
+    },
+    {
+      "timestamp": "2026-05-10T07:42:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 47.689,
+      "elevation_deg": 9.943
+    },
+    {
+      "timestamp": "2026-05-10T07:42:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.43457,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 49.129,
+      "elevation_deg": 10.483
+    },
+    {
+      "timestamp": "2026-05-10T07:42:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 50.621,
+      "elevation_deg": 11.019
+    },
+    {
+      "timestamp": "2026-05-10T07:42:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 52.168,
+      "elevation_deg": 11.549
+    },
+    {
+      "timestamp": "2026-05-10T07:42:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 53.77,
+      "elevation_deg": 12.071
+    },
+    {
+      "timestamp": "2026-05-10T07:43:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 55.429,
+      "elevation_deg": 12.584
+    },
+    {
+      "timestamp": "2026-05-10T07:43:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 57.145,
+      "elevation_deg": 13.085
+    },
+    {
+      "timestamp": "2026-05-10T07:43:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 58.919,
+      "elevation_deg": 13.573
+    },
+    {
+      "timestamp": "2026-05-10T07:43:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 60.75,
+      "elevation_deg": 14.045
+    },
+    {
+      "timestamp": "2026-05-10T07:43:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 62.639,
+      "elevation_deg": 14.497
+    },
+    {
+      "timestamp": "2026-05-10T07:43:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 64.584,
+      "elevation_deg": 14.929
+    },
+    {
+      "timestamp": "2026-05-10T07:44:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 66.584,
+      "elevation_deg": 15.336
+    },
+    {
+      "timestamp": "2026-05-10T07:44:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 68.638,
+      "elevation_deg": 15.717
+    },
+    {
+      "timestamp": "2026-05-10T07:44:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 70.742,
+      "elevation_deg": 16.067
+    },
+    {
+      "timestamp": "2026-05-10T07:44:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 72.893,
+      "elevation_deg": 16.386
+    },
+    {
+      "timestamp": "2026-05-10T07:44:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 75.088,
+      "elevation_deg": 16.669
+    },
+    {
+      "timestamp": "2026-05-10T07:44:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 77.321,
+      "elevation_deg": 16.914
+    },
+    {
+      "timestamp": "2026-05-10T07:45:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 79.589,
+      "elevation_deg": 17.12
+    },
+    {
+      "timestamp": "2026-05-10T07:45:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 81.885,
+      "elevation_deg": 17.283
+    },
+    {
+      "timestamp": "2026-05-10T07:45:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 84.202,
+      "elevation_deg": 17.403
+    },
+    {
+      "timestamp": "2026-05-10T07:45:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 86.536,
+      "elevation_deg": 17.478
+    },
+    {
+      "timestamp": "2026-05-10T07:45:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 88.878,
+      "elevation_deg": 17.508
+    },
+    {
+      "timestamp": "2026-05-10T07:45:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 91.221,
+      "elevation_deg": 17.491
+    },
+    {
+      "timestamp": "2026-05-10T07:46:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 93.559,
+      "elevation_deg": 17.428
+    },
+    {
+      "timestamp": "2026-05-10T07:46:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 95.885,
+      "elevation_deg": 17.321
+    },
+    {
+      "timestamp": "2026-05-10T07:46:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 98.192,
+      "elevation_deg": 17.169
+    },
+    {
+      "timestamp": "2026-05-10T07:46:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 100.474,
+      "elevation_deg": 16.974
+    },
+    {
+      "timestamp": "2026-05-10T07:46:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.395508,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 102.724,
+      "elevation_deg": 16.738
+    },
+    {
+      "timestamp": "2026-05-10T07:46:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 104.937,
+      "elevation_deg": 16.464
+    },
+    {
+      "timestamp": "2026-05-10T07:47:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 107.109,
+      "elevation_deg": 16.153
+    },
+    {
+      "timestamp": "2026-05-10T07:47:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 109.236,
+      "elevation_deg": 15.808
+    },
+    {
+      "timestamp": "2026-05-10T07:47:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.394287,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 111.312,
+      "elevation_deg": 15.433
+    },
+    {
+      "timestamp": "2026-05-10T07:47:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.39917,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 113.337,
+      "elevation_deg": 15.029
+    },
+    {
+      "timestamp": "2026-05-10T07:47:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.439453,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 115.307,
+      "elevation_deg": 14.6
+    },
+    {
+      "timestamp": "2026-05-10T07:47:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 117.221,
+      "elevation_deg": 14.148
+    },
+    {
+      "timestamp": "2026-05-10T07:48:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 119.078,
+      "elevation_deg": 13.677
+    },
+    {
+      "timestamp": "2026-05-10T07:48:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 120.876,
+      "elevation_deg": 13.188
+    },
+    {
+      "timestamp": "2026-05-10T07:48:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 122.617,
+      "elevation_deg": 12.685
+    },
+    {
+      "timestamp": "2026-05-10T07:48:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 124.299,
+      "elevation_deg": 12.169
+    },
+    {
+      "timestamp": "2026-05-10T07:48:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 125.924,
+      "elevation_deg": 11.643
+    },
+    {
+      "timestamp": "2026-05-10T07:48:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 127.493,
+      "elevation_deg": 11.108
+    },
+    {
+      "timestamp": "2026-05-10T07:49:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 129.007,
+      "elevation_deg": 10.567
+    },
+    {
+      "timestamp": "2026-05-10T07:49:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 130.466,
+      "elevation_deg": 10.021
+    },
+    {
+      "timestamp": "2026-05-10T07:49:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 131.873,
+      "elevation_deg": 9.472
+    },
+    {
+      "timestamp": "2026-05-10T07:49:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 133.229,
+      "elevation_deg": 8.92
+    },
+    {
+      "timestamp": "2026-05-10T07:49:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 134.536,
+      "elevation_deg": 8.367
+    },
+    {
+      "timestamp": "2026-05-10T07:49:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 135.795,
+      "elevation_deg": 7.815
+    },
+    {
+      "timestamp": "2026-05-10T07:50:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 137.008,
+      "elevation_deg": 7.263
+    },
+    {
+      "timestamp": "2026-05-10T07:50:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 138.177,
+      "elevation_deg": 6.712
+    },
+    {
+      "timestamp": "2026-05-10T07:50:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 139.303,
+      "elevation_deg": 6.164
+    },
+    {
+      "timestamp": "2026-05-10T07:50:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 140.39,
+      "elevation_deg": 5.619
+    },
+    {
+      "timestamp": "2026-05-10T07:50:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 141.437,
+      "elevation_deg": 5.076
+    },
+    {
+      "timestamp": "2026-05-10T07:50:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 142.447,
+      "elevation_deg": 4.538
+    },
+    {
+      "timestamp": "2026-05-10T07:51:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.429688,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 143.421,
+      "elevation_deg": 4.003
+    },
+    {
+      "timestamp": "2026-05-10T07:51:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 144.362,
+      "elevation_deg": 3.472
+    },
+    {
+      "timestamp": "2026-05-10T07:51:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 145.27,
+      "elevation_deg": 2.945
+    },
+    {
+      "timestamp": "2026-05-10T07:51:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 146.147,
+      "elevation_deg": 2.423
+    },
+    {
+      "timestamp": "2026-05-10T07:51:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 146.994,
+      "elevation_deg": 1.905
+    },
+    {
+      "timestamp": "2026-05-10T07:51:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.43335,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 147.813,
+      "elevation_deg": 1.392
+    },
+    {
+      "timestamp": "2026-05-10T07:52:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 148.605,
+      "elevation_deg": 0.884
+    },
+    {
+      "timestamp": "2026-05-10T07:52:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 149.371,
+      "elevation_deg": 0.38
+    },
+    {
+      "timestamp": "2026-05-10T07:52:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 150.112,
+      "elevation_deg": -0.119
+    },
+    {
+      "timestamp": "2026-05-10T07:52:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 150.83,
+      "elevation_deg": -0.614
+    },
+    {
+      "timestamp": "2026-05-10T07:52:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 151.526,
+      "elevation_deg": -1.104
+    },
+    {
+      "timestamp": "2026-05-10T07:52:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 152.2,
+      "elevation_deg": -1.59
+    },
+    {
+      "timestamp": "2026-05-10T07:53:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 152.854,
+      "elevation_deg": -2.071
+    },
+    {
+      "timestamp": "2026-05-10T07:53:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 153.488,
+      "elevation_deg": -2.548
+    },
+    {
+      "timestamp": "2026-05-10T07:53:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.43335,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 154.103,
+      "elevation_deg": -3.02
+    },
+    {
+      "timestamp": "2026-05-10T07:53:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 154.7,
+      "elevation_deg": -3.489
+    },
+    {
+      "timestamp": "2026-05-10T07:53:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 155.281,
+      "elevation_deg": -3.953
+    },
+    {
+      "timestamp": "2026-05-10T07:53:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.401611,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 155.845,
+      "elevation_deg": -4.413
+    },
+    {
+      "timestamp": "2026-05-10T07:54:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 156.393,
+      "elevation_deg": -4.869
+    },
+    {
+      "timestamp": "2026-05-10T07:54:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 156.926,
+      "elevation_deg": -5.322
+    },
+    {
+      "timestamp": "2026-05-10T07:54:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 157.445,
+      "elevation_deg": -5.771
+    },
+    {
+      "timestamp": "2026-05-10T07:54:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 157.95,
+      "elevation_deg": -6.216
+    },
+    {
+      "timestamp": "2026-05-10T07:54:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 158.443,
+      "elevation_deg": -6.658
+    },
+    {
+      "timestamp": "2026-05-10T07:54:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 158.922,
+      "elevation_deg": -7.096
+    },
+    {
+      "timestamp": "2026-05-10T07:55:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 159.389,
+      "elevation_deg": -7.531
+    },
+    {
+      "timestamp": "2026-05-10T07:55:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 159.845,
+      "elevation_deg": -7.962
+    },
+    {
+      "timestamp": "2026-05-10T07:55:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 160.29,
+      "elevation_deg": -8.391
+    },
+    {
+      "timestamp": "2026-05-10T07:55:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 160.724,
+      "elevation_deg": -8.816
+    },
+    {
+      "timestamp": "2026-05-10T07:55:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 161.147,
+      "elevation_deg": -9.239
+    },
+    {
+      "timestamp": "2026-05-10T07:55:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 161.561,
+      "elevation_deg": -9.659
+    },
+    {
+      "timestamp": "2026-05-10T07:56:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.432129,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 161.966,
+      "elevation_deg": -10.076
+    },
+    {
+      "timestamp": "2026-05-10T07:56:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 162.361,
+      "elevation_deg": -10.49
+    },
+    {
+      "timestamp": "2026-05-10T07:56:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 162.747,
+      "elevation_deg": -10.901
+    },
+    {
+      "timestamp": "2026-05-10T07:56:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 163.125,
+      "elevation_deg": -11.31
+    },
+    {
+      "timestamp": "2026-05-10T07:56:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 163.495,
+      "elevation_deg": -11.717
+    },
+    {
+      "timestamp": "2026-05-10T07:56:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.402832,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 163.857,
+      "elevation_deg": -12.121
+    },
+    {
+      "timestamp": "2026-05-10T07:57:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 164.212,
+      "elevation_deg": -12.523
+    },
+    {
+      "timestamp": "2026-05-10T07:57:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 164.559,
+      "elevation_deg": -12.922
+    },
+    {
+      "timestamp": "2026-05-10T07:57:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 164.899,
+      "elevation_deg": -13.32
+    },
+    {
+      "timestamp": "2026-05-10T07:57:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 165.233,
+      "elevation_deg": -13.715
+    },
+    {
+      "timestamp": "2026-05-10T07:57:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 165.56,
+      "elevation_deg": -14.108
+    },
+    {
+      "timestamp": "2026-05-10T07:57:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 165.881,
+      "elevation_deg": -14.5
+    },
+    {
+      "timestamp": "2026-05-10T07:58:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 166.195,
+      "elevation_deg": -14.889
+    },
+    {
+      "timestamp": "2026-05-10T07:58:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 166.504,
+      "elevation_deg": -15.276
+    },
+    {
+      "timestamp": "2026-05-10T07:58:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 166.807,
+      "elevation_deg": -15.662
+    },
+    {
+      "timestamp": "2026-05-10T07:58:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 167.105,
+      "elevation_deg": -16.046
+    },
+    {
+      "timestamp": "2026-05-10T07:58:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.39917,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 167.398,
+      "elevation_deg": -16.428
+    },
+    {
+      "timestamp": "2026-05-10T07:58:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 167.685,
+      "elevation_deg": -16.808
+    },
+    {
+      "timestamp": "2026-05-10T07:59:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 167.968,
+      "elevation_deg": -17.187
+    },
+    {
+      "timestamp": "2026-05-10T07:59:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 168.245,
+      "elevation_deg": -17.564
+    },
+    {
+      "timestamp": "2026-05-10T07:59:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 168.518,
+      "elevation_deg": -17.94
+    },
+    {
+      "timestamp": "2026-05-10T07:59:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.400391,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 168.787,
+      "elevation_deg": -18.314
+    },
+    {
+      "timestamp": "2026-05-10T07:59:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 169.051,
+      "elevation_deg": -18.686
+    },
+    {
+      "timestamp": "2026-05-10T07:59:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 169.311,
+      "elevation_deg": -19.058
+    },
+    {
+      "timestamp": "2026-05-10T08:00:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 169.568,
+      "elevation_deg": -19.428
+    },
+    {
+      "timestamp": "2026-05-10T08:00:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 169.82,
+      "elevation_deg": -19.796
+    },
+    {
+      "timestamp": "2026-05-10T08:00:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 170.068,
+      "elevation_deg": -20.164
+    },
+    {
+      "timestamp": "2026-05-10T08:00:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 170.313,
+      "elevation_deg": -20.53
+    },
+    {
+      "timestamp": "2026-05-10T08:00:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 170.554,
+      "elevation_deg": -20.895
+    },
+    {
+      "timestamp": "2026-05-10T08:00:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.395508,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 170.792,
+      "elevation_deg": -21.258
+    },
+    {
+      "timestamp": "2026-05-10T08:01:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 171.026,
+      "elevation_deg": -21.621
+    },
+    {
+      "timestamp": "2026-05-10T08:01:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 171.257,
+      "elevation_deg": -21.982
+    },
+    {
+      "timestamp": "2026-05-10T08:01:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 171.485,
+      "elevation_deg": -22.343
+    },
+    {
+      "timestamp": "2026-05-10T08:01:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 171.71,
+      "elevation_deg": -22.702
+    },
+    {
+      "timestamp": "2026-05-10T08:01:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 171.931,
+      "elevation_deg": -23.06
+    },
+    {
+      "timestamp": "2026-05-10T08:01:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 172.15,
+      "elevation_deg": -23.417
+    },
+    {
+      "timestamp": "2026-05-10T08:02:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.397949,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 172.366,
+      "elevation_deg": -23.773
+    },
+    {
+      "timestamp": "2026-05-10T08:02:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 172.58,
+      "elevation_deg": -24.129
+    },
+    {
+      "timestamp": "2026-05-10T08:02:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 172.791,
+      "elevation_deg": -24.483
+    },
+    {
+      "timestamp": "2026-05-10T08:02:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 172.999,
+      "elevation_deg": -24.836
+    },
+    {
+      "timestamp": "2026-05-10T08:02:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 173.204,
+      "elevation_deg": -25.189
+    },
+    {
+      "timestamp": "2026-05-10T08:02:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 173.408,
+      "elevation_deg": -25.54
+    },
+    {
+      "timestamp": "2026-05-10T08:03:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 173.609,
+      "elevation_deg": -25.891
+    },
+    {
+      "timestamp": "2026-05-10T08:03:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 173.807,
+      "elevation_deg": -26.241
+    },
+    {
+      "timestamp": "2026-05-10T08:03:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.003,
+      "elevation_deg": -26.59
+    },
+    {
+      "timestamp": "2026-05-10T08:03:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.198,
+      "elevation_deg": -26.939
+    },
+    {
+      "timestamp": "2026-05-10T08:03:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.39,
+      "elevation_deg": -27.286
+    },
+    {
+      "timestamp": "2026-05-10T08:03:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.58,
+      "elevation_deg": -27.633
+    },
+    {
+      "timestamp": "2026-05-10T08:04:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.768,
+      "elevation_deg": -27.979
+    },
+    {
+      "timestamp": "2026-05-10T08:04:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 174.954,
+      "elevation_deg": -28.325
+    },
+    {
+      "timestamp": "2026-05-10T08:04:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 175.138,
+      "elevation_deg": -28.67
+    },
+    {
+      "timestamp": "2026-05-10T08:04:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 175.32,
+      "elevation_deg": -29.014
+    },
+    {
+      "timestamp": "2026-05-10T08:04:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 175.501,
+      "elevation_deg": -29.357
+    },
+    {
+      "timestamp": "2026-05-10T08:04:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 175.68,
+      "elevation_deg": -29.7
+    },
+    {
+      "timestamp": "2026-05-10T08:05:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 175.857,
+      "elevation_deg": -30.042
+    },
+    {
+      "timestamp": "2026-05-10T08:05:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.032,
+      "elevation_deg": -30.384
+    },
+    {
+      "timestamp": "2026-05-10T08:05:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41748,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.206,
+      "elevation_deg": -30.725
+    },
+    {
+      "timestamp": "2026-05-10T08:05:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.379,
+      "elevation_deg": -31.065
+    },
+    {
+      "timestamp": "2026-05-10T08:05:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.549,
+      "elevation_deg": -31.405
+    },
+    {
+      "timestamp": "2026-05-10T08:05:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.430908,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.719,
+      "elevation_deg": -31.744
+    },
+    {
+      "timestamp": "2026-05-10T08:06:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 176.887,
+      "elevation_deg": -32.083
+    },
+    {
+      "timestamp": "2026-05-10T08:06:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.053,
+      "elevation_deg": -32.421
+    },
+    {
+      "timestamp": "2026-05-10T08:06:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.218,
+      "elevation_deg": -32.759
+    },
+    {
+      "timestamp": "2026-05-10T08:06:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.382,
+      "elevation_deg": -33.096
+    },
+    {
+      "timestamp": "2026-05-10T08:06:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.545,
+      "elevation_deg": -33.432
+    },
+    {
+      "timestamp": "2026-05-10T08:06:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.706,
+      "elevation_deg": -33.768
+    },
+    {
+      "timestamp": "2026-05-10T08:07:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.405273,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 177.866,
+      "elevation_deg": -34.104
+    },
+    {
+      "timestamp": "2026-05-10T08:07:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.025,
+      "elevation_deg": -34.439
+    },
+    {
+      "timestamp": "2026-05-10T08:07:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.183,
+      "elevation_deg": -34.774
+    },
+    {
+      "timestamp": "2026-05-10T08:07:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.339,
+      "elevation_deg": -35.108
+    },
+    {
+      "timestamp": "2026-05-10T08:07:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.495,
+      "elevation_deg": -35.442
+    },
+    {
+      "timestamp": "2026-05-10T08:07:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.649,
+      "elevation_deg": -35.776
+    },
+    {
+      "timestamp": "2026-05-10T08:08:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.803,
+      "elevation_deg": -36.109
+    },
+    {
+      "timestamp": "2026-05-10T08:08:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 178.955,
+      "elevation_deg": -36.441
+    },
+    {
+      "timestamp": "2026-05-10T08:08:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.107,
+      "elevation_deg": -36.773
+    },
+    {
+      "timestamp": "2026-05-10T08:08:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.257,
+      "elevation_deg": -37.105
+    },
+    {
+      "timestamp": "2026-05-10T08:08:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.422363,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.407,
+      "elevation_deg": -37.436
+    },
+    {
+      "timestamp": "2026-05-10T08:08:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.423584,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.556,
+      "elevation_deg": -37.767
+    },
+    {
+      "timestamp": "2026-05-10T08:09:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.704,
+      "elevation_deg": -38.098
+    },
+    {
+      "timestamp": "2026-05-10T08:09:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.404053,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.851,
+      "elevation_deg": -38.428
+    },
+    {
+      "timestamp": "2026-05-10T08:09:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 179.997,
+      "elevation_deg": -38.758
+    },
+    {
+      "timestamp": "2026-05-10T08:09:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.142,
+      "elevation_deg": -39.088
+    },
+    {
+      "timestamp": "2026-05-10T08:09:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.418701,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.287,
+      "elevation_deg": -39.417
+    },
+    {
+      "timestamp": "2026-05-10T08:09:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.413818,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.431,
+      "elevation_deg": -39.746
+    },
+    {
+      "timestamp": "2026-05-10T08:10:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.574,
+      "elevation_deg": -40.075
+    },
+    {
+      "timestamp": "2026-05-10T08:10:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.426025,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.717,
+      "elevation_deg": -40.403
+    },
+    {
+      "timestamp": "2026-05-10T08:10:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.415039,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 180.859,
+      "elevation_deg": -40.731
+    },
+    {
+      "timestamp": "2026-05-10T08:10:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.412598,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.0,
+      "elevation_deg": -41.058
+    },
+    {
+      "timestamp": "2026-05-10T08:10:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.141,
+      "elevation_deg": -41.386
+    },
+    {
+      "timestamp": "2026-05-10T08:10:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.281,
+      "elevation_deg": -41.713
+    },
+    {
+      "timestamp": "2026-05-10T08:11:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.421143,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.421,
+      "elevation_deg": -42.04
+    },
+    {
+      "timestamp": "2026-05-10T08:11:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.56,
+      "elevation_deg": -42.366
+    },
+    {
+      "timestamp": "2026-05-10T08:11:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.419922,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.698,
+      "elevation_deg": -42.692
+    },
+    {
+      "timestamp": "2026-05-10T08:11:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.429688,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.836,
+      "elevation_deg": -43.018
+    },
+    {
+      "timestamp": "2026-05-10T08:11:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.429688,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 181.973,
+      "elevation_deg": -43.344
+    },
+    {
+      "timestamp": "2026-05-10T08:11:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.111,
+      "elevation_deg": -43.669
+    },
+    {
+      "timestamp": "2026-05-10T08:12:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.408936,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.247,
+      "elevation_deg": -43.994
+    },
+    {
+      "timestamp": "2026-05-10T08:12:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.396729,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.383,
+      "elevation_deg": -44.319
+    },
+    {
+      "timestamp": "2026-05-10T08:12:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.407715,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.519,
+      "elevation_deg": -44.644
+    },
+    {
+      "timestamp": "2026-05-10T08:12:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.41626,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.655,
+      "elevation_deg": -44.968
+    },
+    {
+      "timestamp": "2026-05-10T08:12:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.427246,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.79,
+      "elevation_deg": -45.292
+    },
+    {
+      "timestamp": "2026-05-10T08:12:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 182.924,
+      "elevation_deg": -45.616
+    },
+    {
+      "timestamp": "2026-05-10T08:13:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.396729,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.059,
+      "elevation_deg": -45.939
+    },
+    {
+      "timestamp": "2026-05-10T08:13:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.390625,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.193,
+      "elevation_deg": -46.263
+    },
+    {
+      "timestamp": "2026-05-10T08:13:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.428467,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.327,
+      "elevation_deg": -46.586
+    },
+    {
+      "timestamp": "2026-05-10T08:13:30Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.406494,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.461,
+      "elevation_deg": -46.909
+    },
+    {
+      "timestamp": "2026-05-10T08:13:40Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.594,
+      "elevation_deg": -47.232
+    },
+    {
+      "timestamp": "2026-05-10T08:13:50Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.424805,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.727,
+      "elevation_deg": -47.554
+    },
+    {
+      "timestamp": "2026-05-10T08:14:00Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.411377,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.86,
+      "elevation_deg": -47.876
+    },
+    {
+      "timestamp": "2026-05-10T08:14:10Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 183.993,
+      "elevation_deg": -48.198
+    },
+    {
+      "timestamp": "2026-05-10T08:14:20Z",
+      "snr_db": 0.0,
+      "peak_snr_db": 0.0,
+      "ber": 0.410156,
+      "viterbi_state": "NOSYNC",
+      "deframer_state": "NOSYNC",
+      "azimuth_deg": 184.126,
+      "elevation_deg": -48.52
+    }
+  ]
+}

@@ -155,21 +155,21 @@ def open_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def load_single_pass(conn: sqlite3.Connection, pass_date: str, pass_start_time: str, satellite: str):
+def load_single_pass(conn: sqlite3.Connection, pass_id: str):
     """Load header and detail rows for a specific pass."""
     header = conn.execute("""
         SELECT * FROM pass_header
-        WHERE pass_date = ? AND pass_start_time = ? AND satellite = ?
-    """, (pass_date, pass_start_time, satellite)).fetchone()
+        WHERE pass_id = ?
+    """, (pass_id,)).fetchone()
 
     if header is None:
         return None, []
 
     detail_rows = conn.execute("""
         SELECT * FROM pass_detail
-        WHERE pass_date = ? AND pass_start_time = ? AND satellite = ?
+        WHERE pass_id = ?
         ORDER BY timestamp
-    """, (pass_date, pass_start_time, satellite)).fetchall()
+    """, (pass_id,)).fetchall()
 
     return header, detail_rows
 
@@ -177,16 +177,13 @@ def load_single_pass(conn: sqlite3.Connection, pass_date: str, pass_start_time: 
 def load_all_samples(conn: sqlite3.Connection, satellite_filter: list[str] = None):
     """Load all samples, optionally filtered by satellite."""
     sql = """
-    SELECT h.pass_date, h.pass_start_time, h.satellite, h.pipeline, h.frequency_hz,
+    SELECT h.pass_id, h.satellite, h.pipeline, h.frequency_hz,
            h.bandwidth_hz, h.gain, h.source_id, h.bias_t,
-           h.pass_end_time, h.scheduled_start, h.scheduled_end,
-           h.max_elevation, h.aos_azimuth_deg, h.los_azimuth_deg, h.direction,
+           h.pass_start, h.pass_end, h.scheduled_start, h.scheduled_end,
            d.timestamp, d.snr_db, d.peak_snr_db, d.ber,
            d.viterbi_state, d.deframer_state, d.azimuth_deg, d.elevation_deg
     FROM pass_detail d
-    JOIN pass_header h ON h.pass_date = d.pass_date
-                      AND h.pass_start_time = d.pass_start_time
-                      AND h.satellite = d.satellite
+    JOIN pass_header h ON h.pass_id = d.pass_id
     """
     params = []
 
@@ -195,7 +192,7 @@ def load_all_samples(conn: sqlite3.Connection, satellite_filter: list[str] = Non
         sql += f" WHERE h.satellite IN ({placeholders})"
         params = satellite_filter
 
-    sql += " ORDER BY h.satellite, h.pass_date, h.pass_start_time, d.timestamp"
+    sql += " ORDER BY h.satellite, h.pass_start, d.timestamp"
 
     return conn.execute(sql, params).fetchall()
 
@@ -230,9 +227,14 @@ def prepare_samples_from_detail_rows(rows) -> list[dict]:
 
 def build_single_data(header_row) -> dict:
     """Build single-pass metadata dictionary."""
+    # Extract pass_date and pass_start_time from pass_start (ISO format: "2026-05-05T15:26:38Z")
+    pass_start = header_row["pass_start"]
+    pass_date = pass_start.split("T")[0] if "T" in pass_start else ""
+    pass_start_time = pass_start.split("T")[1].replace("Z", "").split("+")[0] if "T" in pass_start else ""
+
     return {
-        "pass_date": header_row["pass_date"],
-        "pass_start_time": header_row["pass_start_time"],
+        "pass_date": pass_date,
+        "pass_start_time": pass_start_time,
         "satellite": header_row["satellite"],
         "pipeline": header_row["pipeline"],
         "frequency_hz": header_row["frequency_hz"],
@@ -240,7 +242,7 @@ def build_single_data(header_row) -> dict:
         "gain": header_row["gain"],
         "source_id": header_row["source_id"],
         "bias_t": bool(header_row["bias_t"]),
-        "pass_end_time": header_row["pass_end_time"],
+        "pass_end": header_row["pass_end"],
         "scheduled_start": header_row["scheduled_start"],
         "scheduled_end": header_row["scheduled_end"],
     }
@@ -418,7 +420,6 @@ def plot_timeseries(data: dict, samples: list[dict], output_path: str):
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
 
-
 def build_pass_map(rows):
     """Build dictionary of passes with their samples."""
     passes = defaultdict(list)
@@ -431,9 +432,9 @@ def build_pass_map(rows):
             continue
 
         sync_state = derive_sync_state(row["viterbi_state"], row["deframer_state"])
-        pass_key = f"{row['pass_date']}_{row['pass_start_time'].replace(':', '-')}_{row['satellite']}"
+        pass_id = row["pass_id"]
 
-        passes[pass_key].append({
+        passes[pass_id].append({
             "timestamp": row["timestamp"],
             "satellite": row["satellite"],
             "pipeline": row["pipeline"],
@@ -445,7 +446,6 @@ def build_pass_map(rows):
         })
 
     return passes
-
 
 def build_satellite_arrow_colors(pass_map):
     """Assign colors to satellites for visualization."""
@@ -596,7 +596,7 @@ def main():
         else:
             raise SystemExit(f"Invalid pass_id format: {args.pass_id}")
 
- # If no arguments provided, show help
+    # If no arguments provided, show help
     if not args.date and not args.satellite:
         parser.print_help()
         return
@@ -613,9 +613,12 @@ def main():
 
     try:
         # Single-pass mode
-        if args.date and args.start_time and args.satellite:
-            satellite = args.satellite[0] if isinstance(args.satellite, list) else args.satellite
-            header_row, detail_rows = load_single_pass(conn, args.date, args.start_time, satellite)
+    if args.date and args.start_time and args.satellite:
+        # Handle satellite as list (from action="append")
+        satellite = args.satellite[0] if isinstance(args.satellite, list) else args.satellite
+        # Construct pass_id from components
+        pass_id = f"{args.date}_{args.start_time.replace(':', '-')}_{satellite.replace(' ', '_')}"
+            header_row, detail_rows = load_single_pass(conn, pass_id)
 
             if header_row is None:
                 raise SystemExit(f"No pass found: {args.date} {args.start_time} {satellite}")
