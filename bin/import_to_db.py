@@ -10,11 +10,12 @@ import argparse
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Tuple
 
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 from read_config import read_config, ConfigError
 
@@ -86,6 +87,28 @@ def get_config_path() -> str:
     """Get path to config.ini."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, "config", "config.ini")
+
+
+def init_db() -> int:
+    """Initialize database by calling init_reception_db.py."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    init_script = os.path.join(base_dir, "bin", "init_reception_db.py")
+
+    result = subprocess.run(
+        [sys.executable, init_script],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.stdout:
+        print(result.stdout.strip())
+
+    if result.returncode != 0:
+        if result.stderr:
+            print(f"[import_to_db] ERROR: {result.stderr.strip()}")
+        return result.returncode
+
+    return 0
 
 
 def open_db(db_path: str) -> sqlite3.Connection:
@@ -236,6 +259,11 @@ def main() -> int:
     except ConfigError as e:
         print(f"[import_to_db] CONFIG ERROR: {e}")
         return 1
+
+    # Initialize database before importing
+    rc = init_db()
+    if rc != 0:
+        return rc
 
     db_path = str(config["paths"]["reception_db_file"])
     output_dir = str(config["paths"]["output_dir"])

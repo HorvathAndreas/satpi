@@ -2,7 +2,6 @@ config/config.ini
 logs/
 results/tle/*
 !results/tle/.gitkeep
-results/passes/*
 !results/passes/.gitkeep
 results/captures/*
 !results/captures/.gitkeep
