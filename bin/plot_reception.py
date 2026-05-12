@@ -613,11 +613,11 @@ def main():
 
     try:
         # Single-pass mode
-    if args.date and args.start_time and args.satellite:
-        # Handle satellite as list (from action="append")
-        satellite = args.satellite[0] if isinstance(args.satellite, list) else args.satellite
-        # Construct pass_id from components
-        pass_id = f"{args.date}_{args.start_time.replace(':', '-')}_{satellite.replace(' ', '_')}"
+        if args.date and args.start_time and args.satellite:
+            # Handle satellite as list (from action="append")
+            satellite = args.satellite[0] if isinstance(args.satellite, list) else args.satellite
+            # Construct pass_id from components
+            pass_id = f"{args.date}_{args.start_time.replace(':', '-')}_{satellite.replace(' ', '_')}"
             header_row, detail_rows = load_single_pass(conn, pass_id)
 
             if header_row is None:

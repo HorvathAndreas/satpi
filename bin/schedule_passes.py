@@ -519,7 +519,7 @@ def main() -> int:
         pass_file = paths["pass_file"]
         generated_units_dir = paths["generated_units_dir"]
         python_bin = paths["python_bin"]
-        receiver_script = str(base_dir / "bin" / "receive_pass.py")
+        receiver_script = str(base_dir / "bin" / "receive_orchestrator.py")
         service_user = config["systemd"].get("service_user") or None
         pre_start = int(config["scheduling"]["pre_start"])
         post_stop = int(config["scheduling"]["post_stop"])

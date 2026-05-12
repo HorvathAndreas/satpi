@@ -3,7 +3,7 @@ logs/
 results/tle/*
 !results/tle/.gitkeep
 !results/passes/.gitkeep
-results/captures/*
+results/passes/*
 !results/captures/.gitkeep
 results/optimization/*
 !results/optimization/.gitkeep

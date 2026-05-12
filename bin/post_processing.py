@@ -290,13 +290,14 @@ def import_to_db(config: Dict[str, Any], reception_json_path: str) -> bool:
 
     return rc == 0
 
-
 def generate_plots(
+    pass_output_dir: str,
     pass_date: str,
     pass_start_time: str,
     satellite: str,
 ) -> bool:
     """Generate plots for the pass using composite key (date, start_time, satellite).
+    Saves plots to pass_output_dir.
 
     Returns: success: bool
     """
@@ -307,14 +308,12 @@ def generate_plots(
         logger.warning("plot_reception.py not found: %s", script)
         return False
 
-    # Build plot command with date, start_time, satellite parameters
-    # Note: satellite may contain spaces (e.g., "METEOR-M2 3"), which is handled
-    # correctly by the list-based subprocess call (no shell quoting needed)
     plot_cmd = [
         "python3", script,
         "--date", pass_date,
         "--start-time", pass_start_time,
         "--satellite", satellite,
+        "--output-dir", pass_output_dir,
     ]
 
     rc = _run_with_timeout(
@@ -502,22 +501,11 @@ def main() -> int:
             continue
 
         # Execute enabled steps
+
+# Execute enabled steps in correct order: Plots -> Copy -> Notify (-> DB)
         copy_ok = False
         target = None
         link = None
-
-        if copy_enabled:
-            logger.info("Step: Copy")
-            copy_ok, target, link = copy_output(config, pass_id, pass_dir)
-
-        if notify_enabled:
-            logger.info("Step: Notify")
-            send_notification(config, reception_payload, copy_ok, target, link, copy_was_requested=copy_enabled)
-
-        if db_enabled:
-            logger.info("Step: DB Import")
-            reception_json = os.path.join(pass_dir, "reception.json")
-            import_to_db(config, reception_json)
 
         if plots_enabled:
             logger.info("Step: Plots")
@@ -533,9 +521,22 @@ def main() -> int:
             satellite = reception_payload.get("satellite", "UNKNOWN")
 
             if pass_date and pass_start_time:
-                generate_plots(pass_date, pass_start_time, satellite)
+                generate_plots(pass_dir, pass_date, pass_start_time, satellite)
             else:
                 logger.warning("Could not extract pass date/time from reception data, skipping plots")
+
+        if db_enabled:
+            logger.info("Step: DB Import")
+            reception_json = os.path.join(pass_dir, "reception.json")
+            import_to_db(config, reception_json)
+
+        if copy_enabled:
+            logger.info("Step: Copy")
+            copy_ok, target, link = copy_output(config, pass_id, pass_dir)
+
+        if notify_enabled:
+            logger.info("Step: Notify")
+            send_notification(config, reception_payload, copy_ok, target, link, copy_was_requested=copy_enabled)
 
         logger.info("Pass %s completed", pass_id)
 
