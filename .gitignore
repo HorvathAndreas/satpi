@@ -2,11 +2,8 @@ config/config.ini
 logs/
 results/tle/*
 !results/tle/.gitkeep
-!results/passes/.gitkeep
 results/passes/*
-!results/captures/.gitkeep
-results/optimization/*
-!results/optimization/.gitkeep
+!results/passes/.gitkeep
 results/reports/*
 !results/reports/.gitkeep
 systemd/generated/
