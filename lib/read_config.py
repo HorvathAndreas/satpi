@@ -54,6 +54,7 @@ KNOWN_KEYS: Dict[str, Set[str]] = {
     },
     "notify": {"enabled", "mail_to", "mail_subject_prefix"},
     "systemd": {"service_user"},
+    "testing": {"duration_seconds"},
     "reception_setup": {
         "antenna_type", "antenna_location", "antenna_orientation",
         "lna", "rf_filter", "feedline", "sdr", "raspberry_pi",
@@ -194,6 +195,7 @@ def read_config(path: str) -> Dict[str, Any]:
         cfg["copytarget"] = _parse_copytarget(parser)
         cfg["notify"] = _parse_notify(parser)
         cfg["systemd"] = _parse_systemd(parser)
+        cfg["testing"] = _parse_testing(parser)
         cfg["reception_setup"] = _parse_reception_setup(parser)
         cfg["optimize_reception"] = _parse_optimize_reception(parser)
         if parser.has_section("noise_floor"):
@@ -315,7 +317,7 @@ def _parse_satellites(
                 errors.append(f"satellite '{name}': invalid pass_direction '{direction}'")
                 direction = "all"
 
-	    # Parse pass_timeslot
+            # Parse pass_timeslot
             timeslot = s.get("pass_timeslot", "all").strip().lower()
             if timeslot not in VALID_TIMESLOTS_PRESETS:
                 # Check if it's a valid time range format HHmm-HHmm
@@ -338,7 +340,6 @@ def _parse_satellites(
                     errors.append(f"satellite '{name}': invalid pass_timeslot '{timeslot}'")
                     timeslot = "all"
 
-
             # Parse other fields
             enabled = s.getboolean("enabled", fallback=True)
             min_elevation = s.getint("min_elevation_deg", fallback=0)
@@ -353,7 +354,7 @@ def _parse_satellites(
                 "bandwidth": bandwidth_hz,
                 "pipeline": pipeline,
                 "pass_direction": direction,
-		"pass_timeslot": timeslot,
+                "pass_timeslot": timeslot,
             })
 
         except (configparser.NoOptionError, ValueError) as e:
@@ -437,6 +438,12 @@ def _parse_systemd(p: configparser.ConfigParser) -> Dict[str, Any]:
     if user is not None:
         user = user.strip() or None
     return {"service_user": user}
+
+
+def _parse_testing(p: configparser.ConfigParser) -> Dict[str, Any]:
+    return {
+        "duration_seconds": p.getint("testing", "duration_seconds", fallback=60),
+    }
 
 
 def _parse_reception_setup(p: configparser.ConfigParser) -> Dict[str, Any]:

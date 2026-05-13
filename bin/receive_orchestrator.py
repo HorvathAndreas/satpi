@@ -314,6 +314,7 @@ def load_passes_to_schedule(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 def receive_pass(
     config: Dict[str, Any],
     pass_data: Dict[str, Any],
+    testmode: bool = False,
 ) -> Tuple[bool, Optional[str]]:
     """Run receive_pass.py for the given pass using pass-id.
 
@@ -335,6 +336,10 @@ def receive_pass(
         return False, None
 
     cmd = [python_bin, script, "--pass-id", pass_id]
+
+    if testmode:
+        cmd.append("--testmode")
+        logger.info("Running in test mode")
 
     rc, stdout, stderr = run_subprocess(
         cmd,
@@ -404,8 +409,12 @@ def post_process_pass(
     return True
 
 
-def process_scheduled_passes(config: Dict[str, Any]) -> int:
+def process_scheduled_passes(config: Dict[str, Any], testmode: bool = False) -> int:
     """Find and process all scheduled passes in the near future.
+
+    Args:
+        config: Configuration dictionary
+        testmode: If True, use test mode with configured duration for all passes
 
     Returns: exit code
     """
@@ -427,21 +436,24 @@ def process_scheduled_passes(config: Dict[str, Any]) -> int:
         logger.info("─" * 60)
         logger.info("Pass %d/%d: %s at %s", i, len(passes), satellite, pass_start)
 
-        # Wait until pass start time
-        now = utc_now()
-        try:
-            pass_dt = datetime.fromisoformat(pass_start.replace("Z", "+00:00"))
-            wait_seconds = (pass_dt - now).total_seconds()
+        # Wait until pass start time (skip in test mode)
+        if not testmode:
+            now = utc_now()
+            try:
+                pass_dt = datetime.fromisoformat(pass_start.replace("Z", "+00:00"))
+                wait_seconds = (pass_dt - now).total_seconds()
 
-            if wait_seconds > 0:
-                logger.info("Waiting %.0f seconds until pass start", wait_seconds)
-                time.sleep(wait_seconds)
-        except (ValueError, OverflowError):
-            logger.warning("Could not parse start time, proceeding immediately")
+                if wait_seconds > 0:
+                    logger.info("Waiting %.0f seconds until pass start", wait_seconds)
+                    time.sleep(wait_seconds)
+            except (ValueError, OverflowError):
+                logger.warning("Could not parse start time, proceeding immediately")
+        else:
+            logger.info("TEST MODE: Skipping wait, starting reception immediately")
 
         # Step 1: Receive pass
         logger.info("Step 1: Receiving satellite pass")
-        recv_ok, pass_output_dir = receive_pass(config, pass_data)
+        recv_ok, pass_output_dir = receive_pass(config, pass_data, testmode=testmode)
 
         if not recv_ok:
             logger.error("Pass reception failed")
@@ -528,6 +540,11 @@ MODES:
         metavar="FILE",
         help="Log file path (in addition to stderr)",
     )
+    p.add_argument(
+        "--testmode",
+        action="store_true",
+        help="Use test mode with configured duration (in seconds) instead of actual pass duration",
+    )
 
     return p.parse_args()
 
@@ -566,7 +583,7 @@ def main() -> int:
                 pass_data = json.load(f)
 
             logger.info("Receiving pass: %s", pass_data.get("satellite", "UNKNOWN"))
-            recv_ok, pass_output_dir = receive_pass(config, pass_data)
+            recv_ok, pass_output_dir = receive_pass(config, pass_data, testmode=args.testmode)
 
             if recv_ok and pass_output_dir:
                 post_process_pass(config, pass_output_dir)
@@ -581,7 +598,7 @@ def main() -> int:
         logger.info("Entering monitor mode (interval: %ds)", args.interval)
         try:
             while True:
-                rc = process_scheduled_passes(config)
+                rc = process_scheduled_passes(config, testmode=args.testmode)
                 if rc != 0:
                     logger.warning("Pass processing cycle completed with errors")
                 logger.info("Sleeping %d seconds before next check", args.interval)
@@ -595,7 +612,7 @@ def main() -> int:
 
     # One-time processing mode (default)
     logger.info("Processing scheduled passes once")
-    return process_scheduled_passes(config)
+    return process_scheduled_passes(config, testmode=args.testmode)
 
 
 if __name__ == "__main__":

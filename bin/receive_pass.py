@@ -103,6 +103,7 @@ def receive_satellite_pass(
     config: Dict[str, Any],
     pass_data: Dict[str, Any],
     pass_id: str,
+    testmode: bool = False,
 ) -> tuple[bool, Optional[str]]:
     """Receive satellite pass using SatDump.
 
@@ -110,6 +111,7 @@ def receive_satellite_pass(
         config: Configuration dictionary
         pass_data: Pass information from passes.json
         pass_id: The pass identifier for output directory naming
+        testmode: If True, use configured test duration instead of actual pass duration
 
     Returns:
         (success: bool, output_dir: Optional[str])
@@ -125,7 +127,11 @@ def receive_satellite_pass(
         logger.error("No frequency specified for %s", satellite)
         return False, None
 
-    duration_sec = calculate_duration_sec(start_iso, end_iso)
+    if testmode:
+        duration_sec = config.get("testing", {}).get("duration_seconds", 60)
+        logger.info("TEST MODE: Using configured duration of %d seconds", duration_sec)
+    else:
+        duration_sec = calculate_duration_sec(start_iso, end_iso)
 
     # Create output directory
     output_dir = config.get("paths", {}).get("output_dir", "/tmp/satpi_output")
@@ -148,6 +154,7 @@ def receive_satellite_pass(
         "--source", "rtlsdr",
         "--samplerate", "1000000",
         "--frequency", str(int(frequency_hz)),
+        "--timeout", str(duration_sec),
     ]
 
     if bandwidth_hz:
@@ -238,6 +245,12 @@ CONFIGURATION:
         help="Pass identifier (format: YYYY-MM-DD_HH-MM-SS_SATELLITE)",
     )
 
+    parser.add_argument(
+        "--testmode",
+        action="store_true",
+        help="Use test mode with configured duration (in seconds) instead of actual pass duration",
+    )
+
     return parser.parse_args()
 
 
@@ -270,7 +283,7 @@ def main() -> int:
         return 1
 
     # Receive the pass
-    success, output_dir = receive_satellite_pass(config, pass_data, args.pass_id)
+    success, output_dir = receive_satellite_pass(config, pass_data, args.pass_id, testmode=args.testmode)
 
     if not success:
         logger.error("Pass reception failed")
