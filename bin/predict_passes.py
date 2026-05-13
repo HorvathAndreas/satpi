@@ -27,8 +27,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from skyfield.api import Loader, wgs84
 from skyfield.sgp4lib import EarthSatellite
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 from read_config import read_config, ConfigError
 
@@ -81,6 +79,18 @@ def isoformat_utc(dt: datetime) -> str:
         .isoformat()
         .replace("+00:00", "Z")
     )
+
+
+def generate_pass_id(start_dt: datetime, satellite: str) -> str:
+    """Generate pass-id from start time and satellite name.
+
+    Format: YYYY-MM-DD_HH-MM-SS_SATELLITE
+    Example: 2026-05-13_12-00-00_METEOR-M2-4
+    """
+    date_part = start_dt.strftime("%Y-%m-%d")
+    time_part = start_dt.strftime("%H-%M-%S")
+    sat_part = satellite.replace(" ", "-")
+    return f"{date_part}_{time_part}_{sat_part}"
 
 
 def build_satellite_map(sat_objects: Sequence[EarthSatellite]) -> Dict[str, EarthSatellite]:
@@ -186,7 +196,10 @@ def _finalize_pass(
     if current_pass["aos_azimuth_deg"] is None or current_pass["los_azimuth_deg"] is None:
         return None
 
+    pass_id = generate_pass_id(current_pass["start"], current_pass["satellite"])
+
     return {
+        "pass-id": pass_id,
         "satellite": current_pass["satellite"],
         "start": isoformat_utc(current_pass["start"]),
         "end": isoformat_utc(current_pass["end"]),
@@ -318,6 +331,7 @@ def _prediction_window_hours(scheduling: Dict[str, Any]) -> int:
     """Read the prediction horizon from config (hours into the future)."""
     return int(scheduling.get("pass_max_prediction_hours", 24))
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Predict upcoming satellite passes for the configured ground station",
@@ -347,6 +361,7 @@ CONFIG.INI REQUIREMENTS:
 
 OUTPUT FILES:
   - Passes JSON: {pass_file} (sorted by start time, includes:
+      * pass-id: Composite identifier (YYYY-MM-DD_HH-MM-SS_SATELLITE)
       * start/end times (UTC ISO format)
       * max elevation and time of maximum
       * AOS/LOS azimuths (degrees)
@@ -358,11 +373,12 @@ OUTPUT FILES:
 BEHAVIOR:
   - Reads TLE file and builds satellite map
   - Computes all passes within prediction window
+  - Generates pass-id for each pass (composite key)
   - Filters by min_elevation per satellite
   - Calculates azimuth direction (8-way compass)
   - Falls back to builtin Skyfield data if download fails
   - Warns if no passes found in window (suggests lowering min_elevation)
-        """
+        """,
     )
     return parser.parse_args()
 
@@ -371,7 +387,6 @@ def main() -> int:
     parse_args()  # Process --help / -h if requested
     base_dir = Path(__file__).resolve().parent.parent
     config_path = base_dir / "config" / "config.ini"
-    # ... (rest unchanged)
 
     try:
         config = read_config(str(config_path))

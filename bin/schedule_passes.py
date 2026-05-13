@@ -90,8 +90,11 @@ def run(cmd: Sequence[str], *, check: bool = True, timeout: int = SYSTEMCTL_TIME
 
 
 def ensure_sudo_nopasswd() -> None:
-    """Fail fast if sudo would prompt for a password."""
-    r = subprocess.run(["sudo", "-n", "true"], capture_output=True, text=True, timeout=5)
+    """Fail fast if sudo would prompt for a password for systemctl."""
+    r = subprocess.run(
+        ["sudo", "-n", "/bin/systemctl", "--version"],
+        capture_output=True, text=True, timeout=5
+    )
     if r.returncode != 0:
         raise RuntimeError(
             "Passwordless sudo is required for systemctl operations. "
@@ -272,7 +275,7 @@ def _service_content(
     python_bin: str,
     base_dir: str,
     service_user: Optional[str],
-    pass_file_path: str,
+    pass_id: str,
 ) -> str:
     user_line = f"User={service_user}\n" if service_user else ""
     description = (
@@ -291,7 +294,7 @@ def _service_content(
         "Type=oneshot\n"
         f"{user_line}"
         f"WorkingDirectory={base_dir}\n"
-        f"ExecStart={python_bin} {receiver_script} --pass-file {pass_file_path}\n"
+        f"ExecStart={python_bin} {receiver_script} --pass-id {pass_id}\n"
     )
 
 
@@ -312,25 +315,6 @@ def _timer_content(service_name: str, p: Dict[str, Any]) -> str:
         "[Install]\n"
         "WantedBy=timers.target\n"
     )
-
-
-def _pass_sidecar(p: Dict[str, Any]) -> Dict[str, Any]:
-    """Serializable view of the pass for the receiver script."""
-    return {
-        "satellite": p["satellite"],
-        "frequency_hz": p["frequency_hz"],
-        "bandwidth_hz": p["bandwidth_hz"],
-        "pipeline": p["pipeline"],
-        "start": p["start"],
-        "end": p["end"],
-        "scheduled_start": isoformat_utc(p["scheduled_start_dt"]),
-        "scheduled_end": isoformat_utc(p["scheduled_end_dt"]),
-        "max_elevation": p.get("max_elevation"),
-        "max_elevation_time": p.get("max_elevation_time"),
-        "aos_azimuth_deg": p.get("aos_azimuth_deg"),
-        "los_azimuth_deg": p.get("los_azimuth_deg"),
-        "direction": p.get("direction"),
-    }
 
 
 def write_file_atomic(path: str, content: str) -> None:
@@ -405,14 +389,16 @@ def create_units(
 
         service_path = os.path.join(generated_units_dir, service_name)
         timer_path = os.path.join(generated_units_dir, timer_name)
-        pass_path = os.path.join(generated_units_dir, f"{base}.pass.json")
 
-        # Write the sidecar first – the service is only usable once it exists.
-        write_file_atomic(pass_path, json.dumps(_pass_sidecar(p), indent=2) + "\n")
+        # Extract pass-id from pass data
+        pass_id = p.get("pass-id", "")
+        if not pass_id:
+            logger.warning("Pass missing pass-id, skipping: %s", p.get("satellite", "UNKNOWN"))
+            continue
 
         write_file_atomic(
             service_path,
-            _service_content(p, receiver_script, python_bin, base_dir, service_user, pass_path),
+            _service_content(p, receiver_script, python_bin, base_dir, service_user, pass_id),
         )
         write_file_atomic(timer_path, _timer_content(service_name, p))
 
@@ -473,7 +459,7 @@ CONFIG.INI REQUIREMENTS:
 
   [satellites]
     - pass_direction: Direction filter for each satellite (default: "all")
-      Valid values: north, northeast, east, southeast, south, southwest, west, 
+      Valid values: north, northeast, east, southeast, south, southwest, west,
                    northwest, north_to_south, east_to_west, etc.
 
 OUTPUT FILES:
