@@ -147,16 +147,11 @@ def plot_skyplot(samples: List[Dict[str, Any]], pass_label: str, output_path: st
         ax.plot(theta_seg, r_seg, "b-", linewidth=2, label=label)
         first_segment = False
 
-    # Start / end / culmination markers — labels include actual az/el values.
+    # Start / end markers — labels include actual az/el values.
     ax.plot(theta[0], r[0], "go", markersize=12,
             label=f"Start (az={az_deg[0]:.0f}°, el={el_deg[0]:.1f}°)")
     ax.plot(theta[-1], r[-1], "r^", markersize=12,
             label=f"End (az={az_deg[-1]:.0f}°, el={el_deg[-1]:.1f}°)")
-
-    culm_idx = int(np.argmax(el_deg))
-    ax.plot(theta[culm_idx], r[culm_idx], marker="*", color="gold",
-            markersize=22, markeredgecolor="black", linestyle="None",
-            label=f"Culmination (az={az_deg[culm_idx]:.0f}°, el={el_deg[culm_idx]:.1f}°)")
 
     # Polar axes configuration — North up, clockwise, zenith at centre.
     ax.set_theta_zero_location("N")
