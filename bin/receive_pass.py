@@ -145,6 +145,13 @@ def receive_satellite_pass(
     logger.info("Receiving %s (%s) for %d seconds", satellite, pass_id, duration_sec)
     logger.info("Output directory: %s", pass_dir)
 
+    # Get RTL-SDR hardware parameters from config
+    hardware = config.get("hardware", {})
+    source_id = hardware.get("source_id", "00000001")
+    gain = hardware.get("gain", 38.6)
+    sample_rate = hardware.get("sample_rate", 2.4e6)
+    bias_t = hardware.get("bias_t", True)
+
     # Build SatDump command
     cmd = [
         "satdump",
@@ -152,10 +159,15 @@ def receive_satellite_pass(
         pipeline,
         pass_dir,
         "--source", "rtlsdr",
-        "--samplerate", "1000000",
+        "--device-id", str(source_id),
+        "--samplerate", str(int(sample_rate)),
         "--frequency", str(int(frequency_hz)),
+        "--gain", str(float(gain)),
         "--timeout", str(duration_sec),
     ]
+
+    if bias_t:
+        cmd.append("--bias-t")
 
     if bandwidth_hz:
         cmd.extend(["--bandwidth", str(int(bandwidth_hz))])
@@ -190,7 +202,7 @@ def receive_satellite_pass(
 
     # Create reception.json with metadata
     reception_data = {
-        "pass-id": pass_id,
+        "pass_id": pass_id,
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "satellite": satellite,
         "pipeline": pipeline,
@@ -198,6 +210,10 @@ def receive_satellite_pass(
         "bandwidth_hz": bandwidth_hz,
         "duration_sec": duration_sec,
         "output_dir": pass_dir,
+        "gain": gain,
+        "bias_t": bias_t,
+        "sample_rate": sample_rate,
+        "source_id": source_id,
     }
 
     reception_json = os.path.join(pass_dir, "reception.json")
