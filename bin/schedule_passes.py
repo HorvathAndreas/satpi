@@ -128,7 +128,10 @@ def isoformat_utc(dt: datetime) -> str:
 
 
 def systemd_time(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    # The trailing "UTC" is essential: without it, systemd treats the
+    # OnCalendar value as local time and fires every timer 2 hours early
+    # in CEST (= UTC+2) summer.
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 def sanitize_name(value: str) -> str:
     value = value.upper().replace(" ", "-").replace("_", "-")
