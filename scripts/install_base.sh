@@ -155,7 +155,8 @@ sudo apt install -y \
   libdbus-1-dev \
   rclone \
   msmtp \
-  rsync
+  rsync \
+  iw
 
 press_enter
 
@@ -273,6 +274,50 @@ usb_max_current_enable=1
 EOT_USBCFG
     info "Done. A reboot is required for this to take effect."
 fi
+
+press_enter
+
+section "DISABLE WIFI POWER SAVE (PI 5 BRCMFMAC HANG WORKAROUND)"
+
+cat <<'EOT_WIFI_PS'
+The Pi 4 / Pi 5 WiFi chip (BCM4345 via the brcmfmac driver) ships with
+power save enabled by default. Under sustained load — especially during
+WPA group rekey events on the 5 GHz band — this is known to cause the
+kernel to silently hang: logs stop without any error message, network
+goes dead, and the system requires a hard power-cycle to recover.
+
+Symptom in journalctl -b -1:
+  the last log line is a WiFi event (WPA rekey, avahi address record,
+  or NTP timeout), and there is no shutdown or panic message after it.
+
+Disabling power save on wlan0 reliably eliminates these hangs at the
+cost of a small idle-power increase (a few milliwatts).
+EOT_WIFI_PS
+
+# 1. Apply the setting immediately for the current session.
+sudo iw dev wlan0 set power_save off 2>/dev/null || \
+    warn "Could not set power_save off now (wlan0 not present?). Persistent unit will still install."
+
+# 2. Install a systemd oneshot so the setting survives every reboot.
+sudo tee /etc/systemd/system/wifi-powersave-off.service >/dev/null <<'EOT_WIFI_UNIT'
+[Unit]
+Description=Disable WiFi power save on wlan0 (brcmfmac hang workaround)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/iw dev wlan0 set power_save off
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOT_WIFI_UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now wifi-powersave-off.service
+
+CURRENT_PS="$(iw dev wlan0 get power_save 2>/dev/null | sed 's/^.*: //')"
+info "wlan0 power_save is now: ${CURRENT_PS:-unknown}"
 
 press_enter
 

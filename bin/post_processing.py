@@ -8,7 +8,7 @@ Abhängig von Execution-Flags:
   --copy   → rclone copy zum Remote
   --notify → Mail-Benachrichtigung senden
   --db     → Import zu SQLite reception.db
-  --plots  → Erzeuge Plots via plot_reception.py
+  --plots  → Erzeuge Plots via plot_receptions.py
 
 Kann manuell aufgerufen oder vom receive_orchestrator.py gesteuert werden.
 
@@ -33,6 +33,20 @@ from read_config import read_config, ConfigError
 
 
 logger = logging.getLogger("satpi.post_processing")
+
+
+def str2bool(v: Optional[str]) -> bool:
+    """Convert string to boolean. Used for --copy true/false arguments."""
+    if v is None:
+        return True  # --flag without argument defaults to True
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('true', '1', 'yes', 'y'):
+        return True
+    elif v.lower() in ('false', '0', 'no', 'n'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Boolean value expected, got: {v}")
 
 
 # --- Constants ---------------------------------------------------------------
@@ -267,8 +281,8 @@ def send_notification(
     return True
 
 
-def import_to_db(config: Dict[str, Any], reception_json_path: str) -> bool:
-    """Import reception data to SQLite database.
+def import_to_db(config: Dict[str, Any], pass_id: str) -> bool:
+    """Import reception data to SQLite database using pass_id.
 
     Returns: success: bool
     """
@@ -279,25 +293,23 @@ def import_to_db(config: Dict[str, Any], reception_json_path: str) -> bool:
         logger.warning("import_to_db.py not found: %s", script)
         return False
 
-    log_dir = config.get("paths", {}).get("log_dir", "/tmp")
     python_bin = config.get("paths", {}).get("python_bin", "python3")
 
     rc = _run_with_timeout(
-        [python_bin, script, reception_json_path],
+        [python_bin, script, "--pass-id", pass_id],
         timeout=DB_IMPORT_TIMEOUT_SECONDS,
         cwd=base_dir,
     )
 
     return rc == 0
 
+
 def generate_plots(
-    pass_output_dir: str,
-    pass_date: str,
-    pass_start_time: str,
-    satellite: str,
+    config: Dict[str, Any],
+    pass_id: str,
+    config_path: Optional[str] = None,
 ) -> bool:
-    """Generate plots for the pass using composite key (date, start_time, satellite).
-    Saves plots to pass_output_dir.
+    """Generate plots for the pass using pass_id (composite key: YYYY-MM-DD_HH-MM-SS_SATELLITE).
 
     Returns: success: bool
     """
@@ -308,13 +320,15 @@ def generate_plots(
         logger.warning("plot_reception.py not found: %s", script)
         return False
 
+    python_bin = config.get("paths", {}).get("python_bin", "python3")
+
+    # Build plot command with pass_id parameter
     plot_cmd = [
-        "python3", script,
-        "--date", pass_date,
-        "--start-time", pass_start_time,
-        "--satellite", satellite,
-        "--output-dir", pass_output_dir,
+        python_bin, script,
+        "--pass-id", pass_id,
     ]
+    if config_path:
+        plot_cmd.extend(["--config", config_path])
 
     rc = _run_with_timeout(
         plot_cmd,
@@ -324,6 +338,7 @@ def generate_plots(
 
     return rc == 0
 
+
 # --- CLI & Main --------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
@@ -332,7 +347,7 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 PASS SELECTION (choose one):
   --pass-id "2026-05-04_13-45-30_METEOR_M2-X"
-                             Find pass by name in output_dir
+                             Process specific pass by ID
   --reception-json /path/to/reception.json
                              Process specific reception.json file
   --pass-output-dir /path/to/pass_dir
@@ -343,7 +358,7 @@ EXECUTION FLAGS (combine as needed):
   --copy                     Copy pass output to rclone remote
   --notify                   Send mail notification
   --db                       Import reception data to SQLite
-  --plots                    Generate plots via plot_reception.py
+  --plots                    Generate plots via plot_receptions.py
 
 EXAMPLES:
   # Process last pass with all steps
@@ -366,7 +381,7 @@ EXAMPLES:
     input_group.add_argument(
         "--pass-id",
         metavar="ID",
-        help="Pass-id (e.g., 2026-05-04_13-45-30_METEOR_M2-X)",
+        help="Pass ID (format: YYYY-MM-DD_HH-MM-SS_SATELLITE)",
     )
     input_group.add_argument(
         "--reception-json",
@@ -385,26 +400,34 @@ EXAMPLES:
         help="Process last N passes (sequentially)",
     )
 
-    # Execution flags
+    # Execution flags (true/false or omit for true)
     p.add_argument(
         "--copy",
-        action="store_true",
-        help="Copy pass output to rclone remote (uses [copytarget] config)",
+        type=str2bool,
+        nargs="?",
+        const="true",
+        help="Copy pass output to rclone (true/false, default: config setting). Omit or --copy true to enable.",
     )
     p.add_argument(
         "--notify",
-        action="store_true",
-        help="Send mail notification (uses [notify] config)",
+        type=str2bool,
+        nargs="?",
+        const="true",
+        help="Send mail notification (true/false, default: config setting)",
     )
     p.add_argument(
         "--db",
-        action="store_true",
-        help="Import reception data to SQLite database",
+        type=str2bool,
+        nargs="?",
+        const="true",
+        help="Import reception data to SQLite (true/false, default: config setting)",
     )
     p.add_argument(
         "--plots",
-        action="store_true",
-        help="Generate plots via plot_reception.py",
+        type=str2bool,
+        nargs="?",
+        const="true",
+        help="Generate plots (true/false, default: config setting)",
     )
 
     # Config
@@ -478,10 +501,11 @@ def main() -> int:
         passes_to_process = [(pass_id, pass_dir)]
 
     # Determine execution steps: CLI args override config defaults
-    copy_enabled = args.copy or config.get("copytarget", {}).get("enabled", False)
-    notify_enabled = args.notify or config.get("notify", {}).get("enabled", False)
-    db_enabled = args.db or config.get("database", {}).get("enabled", False)
-    plots_enabled = args.plots or config.get("plots", {}).get("enabled", False)
+    # If CLI flag is provided (not None), use it; otherwise use config
+    copy_enabled = args.copy if args.copy is not None else config.get("copytarget", {}).get("enabled", False)
+    notify_enabled = args.notify if args.notify is not None else config.get("notify", {}).get("enabled", False)
+    db_enabled = args.db if args.db is not None else config.get("database", {}).get("enabled", False)
+    plots_enabled = args.plots if args.plots is not None else config.get("plots", {}).get("enabled", False)
 
     logger.info("Execution flags: copy=%s notify=%s db=%s plots=%s",
                 copy_enabled, notify_enabled, db_enabled, plots_enabled)
@@ -500,35 +524,22 @@ def main() -> int:
             failed_count += 1
             continue
 
-        # Execute enabled steps
-
-# Execute enabled steps in correct order: Plots -> Copy -> Notify (-> DB)
+        # Execute enabled steps in correct order:
+        # 1. DB Import (populate database with samples)
+        # 2. Plots (generate plots from database data)
+        # 3. Copy (copy everything to remote, including plots)
+        # 4. Notify (send notification with link to copied files)
         copy_ok = False
         target = None
         link = None
 
-        if plots_enabled:
-            logger.info("Step: Plots")
-            # Extract date, start_time, satellite from reception_payload
-            pass_start = reception_payload.get("pass_start", "")  # ISO format: YYYY-MM-DDTHH:MM:SSZ
-            if "T" in pass_start:
-                pass_date, time_part = pass_start.split("T")
-                pass_start_time = time_part.replace("Z", "").split("+")[0]  # Remove Z and timezone
-            else:
-                pass_date = ""
-                pass_start_time = ""
-
-            satellite = reception_payload.get("satellite", "UNKNOWN")
-
-            if pass_date and pass_start_time:
-                generate_plots(pass_dir, pass_date, pass_start_time, satellite)
-            else:
-                logger.warning("Could not extract pass date/time from reception data, skipping plots")
-
         if db_enabled:
             logger.info("Step: DB Import")
-            reception_json = os.path.join(pass_dir, "reception.json")
-            import_to_db(config, reception_json)
+            import_to_db(config, pass_id)
+
+        if plots_enabled:
+            logger.info("Step: Plots")
+            generate_plots(config, pass_id)
 
         if copy_enabled:
             logger.info("Step: Copy")
