@@ -6,7 +6,6 @@ results/passes/*
 !results/passes/.gitkeep
 results/reports/*
 !results/reports/.gitkeep
-systemd/generated/
 systemd/satpi-refresh.service
 systemd/satpi-refresh.timer
 __pycache__/
